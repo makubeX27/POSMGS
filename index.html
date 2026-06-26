@@ -607,6 +607,62 @@
   .restock-empty { text-align: center; padding: 28px; color: var(--muted); font-size: .88rem; }
   .restock-modal-footer { display: flex; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
 
+  /* ── Add Stocks Modal ── */
+  .addstocks-modal { max-width: 420px; width: 95vw; }
+  .addstocks-product-select {
+    width: 100%; padding: 9px 12px; border: 1.5px solid var(--border);
+    border-radius: 8px; font-size: .92rem; background: var(--surface);
+    color: var(--text); outline: none; cursor: pointer;
+  }
+  .addstocks-product-select:focus { border-color: var(--green); }
+  .addstocks-product-info {
+    display: none; background: var(--bg); border: 1.5px solid var(--border);
+    border-radius: 10px; padding: 12px 14px; margin-top: 2px;
+  }
+  .addstocks-product-info.show { display: flex; align-items: center; gap: 12px; }
+  .addstocks-prod-emoji { font-size: 1.8rem; }
+  .addstocks-prod-details { flex: 1; min-width: 0; }
+  .addstocks-prod-name { font-weight: 700; font-size: .95rem; }
+  .addstocks-prod-meta { font-size: .78rem; color: var(--muted); margin-top: 2px; }
+  .addstocks-qty-row { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
+  .addstocks-qty-btn {
+    width: 36px; height: 36px; border-radius: 8px; border: 1.5px solid var(--border);
+    background: var(--surface); font-size: 1.2rem; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    color: var(--text); transition: background .15s;
+  }
+  .addstocks-qty-btn:hover { background: var(--border); }
+  .addstocks-qty-input {
+    flex: 1; text-align: center; padding: 8px; border: 1.5px solid var(--border);
+    border-radius: 8px; font-size: 1.1rem; font-weight: 700; font-family: \"Nunito\", sans-serif;
+    background: var(--surface); color: var(--text);
+  }
+  .addstocks-qty-input:focus { border-color: var(--green); outline: none; }
+  .addstocks-search-wrap { position: relative; }
+  .addstocks-search-input {
+    width: 100%; padding: 9px 12px; border: 1.5px solid var(--border);
+    border-radius: 8px; font-size: .92rem; background: var(--surface);
+    color: var(--text); outline: none; box-sizing: border-box;
+  }
+  .addstocks-search-input:focus { border-color: var(--green); }
+  .addstocks-dropdown {
+    display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: 10px; max-height: 200px; overflow-y: auto; z-index: 50;
+    box-shadow: 0 4px 16px rgba(0,0,0,.12);
+  }
+  .addstocks-dropdown.show { display: block; }
+  .addstocks-dropdown-item {
+    padding: 9px 14px; cursor: pointer; display: flex; align-items: center;
+    gap: 10px; font-size: .88rem; border-bottom: 1px solid var(--border);
+  }
+  .addstocks-dropdown-item:last-child { border-bottom: none; }
+  .addstocks-dropdown-item:hover { background: var(--bg); }
+  .addstocks-dropdown-item .di-name { font-weight: 600; }
+  .addstocks-dropdown-item .di-stock { font-size: .75rem; color: var(--muted); }
+  .addstocks-scan-row { display: flex; gap: 8px; }
+  .addstocks-scan-row .addstocks-search-wrap { flex: 1; }
+
   /* ── SCROLLBAR ── */
   ::-webkit-scrollbar { width: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -920,6 +976,7 @@
     <h2>📦 Inventory</h2>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn-sec" onclick="openRestockModal()">🔔 Restock List</button>
+      <button class="btn-sec" onclick="openAddStocksModal()">📥 Add Stocks</button>
       <button class="btn-primary" onclick="openAddCategory()">+ Category</button>
       <button class="btn-primary" onclick="openAddProduct()">+ Add Product</button>
     </div>
@@ -973,6 +1030,46 @@
     <div class="modal-actions">
       <button class="btn-sec" onclick="closeModal('product-modal')">Cancel</button>
       <button class="btn-primary" onclick="saveProduct()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ ADD STOCKS MODAL ═══════ -->
+<div class="modal-overlay" id="addstocks-modal">
+  <div class="modal addstocks-modal">
+    <h3>📥 Add Stocks</h3>
+    <div class="form-row">
+      <label>Find Product</label>
+      <div class="addstocks-scan-row">
+        <div class="addstocks-search-wrap">
+          <input id="as-search" class="addstocks-search-input" type="text"
+            placeholder="Search by name or barcode…"
+            autocomplete="off"
+            oninput="addStocksSearch(this.value)"
+            onfocus="addStocksSearch(this.value)">
+          <div class="addstocks-dropdown" id="as-dropdown"></div>
+        </div>
+        <button class="btn-sec" type="button" style="white-space:nowrap;flex-shrink:0" onclick="openScannerForAddStocks()">📷 Scan</button>
+      </div>
+    </div>
+    <div class="addstocks-product-info" id="as-product-info">
+      <div class="addstocks-prod-emoji" id="as-prod-emoji">📦</div>
+      <div class="addstocks-prod-details">
+        <div class="addstocks-prod-name" id="as-prod-name"></div>
+        <div class="addstocks-prod-meta" id="as-prod-meta"></div>
+      </div>
+    </div>
+    <div class="form-row" id="as-qty-row" style="display:none">
+      <label>Quantity to Add</label>
+      <div class="addstocks-qty-row">
+        <button class="addstocks-qty-btn" onclick="addStocksAdjust(-1)">−</button>
+        <input id="as-qty" class="addstocks-qty-input" type="number" min="1" value="1">
+        <button class="addstocks-qty-btn" onclick="addStocksAdjust(1)">+</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sec" onclick="closeModal('addstocks-modal')">Cancel</button>
+      <button class="btn-primary" id="as-confirm-btn" onclick="confirmAddStocks()" style="display:none">✔ Add to Stock</button>
     </div>
   </div>
 </div>
@@ -1133,6 +1230,11 @@ function updateOnlineStatus(online) {
 
 window.addEventListener("online",  () => checkConnection());
 window.addEventListener("offline", () => updateOnlineStatus(false));
+document.addEventListener("click", (e) => {
+  const dd = document.getElementById("as-dropdown");
+  const wrap = document.querySelector(".addstocks-search-wrap");
+  if (dd && wrap && !wrap.contains(e.target)) dd.classList.remove("show");
+});
 
 // navigator.onLine only reflects whether the network adapter is up — it does
 // NOT mean the internet is actually reachable (e.g. connected to a router
@@ -2076,6 +2178,7 @@ function renderInventory() {
       <td><span class="stock-pill stock-${status}">${labels[status]}</span></td>
       <td>
         <button class="edit-btn" onclick="openEditProduct('${p.id}')">Edit</button>
+        <button class="edit-btn" style="background:var(--green-lt);color:var(--green);border-color:var(--green)" onclick="quickAddStocks('${p.id}')">+Stock</button>
       </td>
     </tr>`;
   }).join("");
@@ -2210,9 +2313,11 @@ function closeModal(id) {
 let scannerStream = null;
 let scannerLoopId = null;
 let scannerForProductModal = false;
+let scannerForAddStocks = false;
 
 async function openScanner(forProductModal) {
   scannerForProductModal = !!forProductModal;
+  scannerForAddStocks = false;
   const statusEl = document.getElementById("scanner-status");
   statusEl.textContent = "Point camera at barcode…";
   document.getElementById("scanner-modal").classList.add("open");
@@ -2256,6 +2361,11 @@ function handleScannedCode(code) {
     if (dup) alert(`Heads up: this barcode is already used by "${dup.name}".`);
     return;
   }
+  if (scannerForAddStocks) {
+    scannerForAddStocks = false;
+    handleScannedCodeForAddStocks(code);
+    return;
+  }
   const p = products.find(x => x.barcode && x.barcode === code);
   if (p) {
     if (p.stock <= 0) {
@@ -2274,6 +2384,176 @@ function closeScanner() {
   if (scannerStream) { scannerStream.getTracks().forEach(t => t.stop()); scannerStream = null; }
   const video = document.getElementById("scanner-video");
   if (video) video.srcObject = null;
+}
+
+// ═══════════════════════════════════════════
+//  ADD STOCKS
+// ═══════════════════════════════════════════
+let addStocksSelectedId = null;
+
+function openAddStocksModal() {
+  addStocksSelectedId = null;
+  document.getElementById("as-search").value = "";
+  document.getElementById("as-dropdown").classList.remove("show");
+  document.getElementById("as-product-info").classList.remove("show");
+  document.getElementById("as-qty-row").style.display = "none";
+  document.getElementById("as-confirm-btn").style.display = "none";
+  document.getElementById("as-qty").value = 1;
+  document.getElementById("addstocks-modal").classList.add("open");
+  setTimeout(() => document.getElementById("as-search").focus(), 80);
+}
+
+function addStocksSearch(query) {
+  const dd = document.getElementById("as-dropdown");
+  query = query.trim().toLowerCase();
+  if (!query) { dd.classList.remove("show"); return; }
+  const matches = products.filter(p =>
+    p.name.toLowerCase().includes(query) ||
+    (p.barcode && p.barcode.includes(query))
+  ).slice(0, 8);
+  if (!matches.length) {
+    dd.innerHTML = `<div class="addstocks-dropdown-item"><span class="di-name" style="color:var(--muted)">No products found</span></div>`;
+  } else {
+    dd.innerHTML = matches.map(p => `
+      <div class="addstocks-dropdown-item" onclick="addStocksSelectProduct('${p.id}')">
+        <span style="font-size:1.2rem">${p.emoji||"📦"}</span>
+        <div>
+          <div class="di-name">${p.name}</div>
+          <div class="di-stock">${p.cat} · ${p.stock} pcs in stock${p.barcode ? " · 🔲 " + p.barcode : ""}</div>
+        </div>
+      </div>`).join("");
+  }
+  dd.classList.add("show");
+}
+
+function addStocksSelectProduct(id) {
+  const p = products.find(x => x.id == id);
+  if (!p) return;
+  addStocksSelectedId = id;
+  document.getElementById("as-search").value = p.name;
+  document.getElementById("as-dropdown").classList.remove("show");
+  document.getElementById("as-prod-emoji").textContent = p.emoji || "📦";
+  document.getElementById("as-prod-name").textContent = p.name;
+  const threshold = (p.reorder != null && p.reorder >= 0) ? p.reorder : getGlobalThreshold();
+  const statusLabel = p.stock === 0 ? "🔴 Out of Stock" : p.stock <= threshold ? "🟡 Low Stock" : "🟢 In Stock";
+  document.getElementById("as-prod-meta").textContent =
+    `${p.cat} · Current stock: ${p.stock} pcs · ${statusLabel}`;
+  document.getElementById("as-product-info").classList.add("show");
+  document.getElementById("as-qty-row").style.display = "";
+  document.getElementById("as-confirm-btn").style.display = "";
+  document.getElementById("as-qty").value = 1;
+  document.getElementById("as-qty").focus();
+}
+
+function addStocksAdjust(delta) {
+  const input = document.getElementById("as-qty");
+  const current = parseInt(input.value) || 1;
+  input.value = Math.max(1, current + delta);
+}
+
+// Called from barcode scanner when in add-stocks mode
+function handleScannedCodeForAddStocks(code) {
+  const p = products.find(x => x.barcode && x.barcode === code);
+  if (p) {
+    document.getElementById("as-search").value = code;
+    addStocksSelectProduct(p.id);
+  } else {
+    // Pre-fill the search so they can see what was scanned
+    document.getElementById("as-search").value = code;
+    const dd = document.getElementById("as-dropdown");
+    dd.innerHTML = `<div class="addstocks-dropdown-item"><span class="di-name" style="color:var(--red)">No product with barcode: ${code}</span></div>`;
+    dd.classList.add("show");
+  }
+}
+
+function openScannerForAddStocks() {
+  scannerForProductModal = false;
+  scannerForAddStocks = true;
+  const statusEl = document.getElementById("scanner-status");
+  statusEl.textContent = "Point camera at barcode…";
+  document.getElementById("scanner-modal").classList.add("open");
+
+  if (!("BarcodeDetector" in window)) {
+    statusEl.innerHTML = "⚠️ Your browser doesn't support live barcode scanning.<br>Try Chrome on Android, or type the barcode manually.";
+    return;
+  }
+
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+    .then(stream => {
+      scannerStream = stream;
+      const video = document.getElementById("scanner-video");
+      video.srcObject = stream;
+      return video.play().then(() => {
+        const detector = new BarcodeDetector({
+          formats: ["ean_13","ean_8","upc_a","upc_e","code_128","code_39","qr_code"]
+        });
+        const scanLoop = async () => {
+          if (!scannerStream) return;
+          try {
+            const codes = await detector.detect(video);
+            if (codes.length) { handleScannedCode(codes[0].rawValue); return; }
+          } catch (e) {}
+          scannerLoopId = requestAnimationFrame(scanLoop);
+        };
+        scanLoop();
+      });
+    })
+    .catch(err => { statusEl.textContent = "⚠️ Could not access camera: " + err.message; });
+}
+
+async function confirmAddStocks() {
+  if (!addStocksSelectedId) return;
+  const qty = parseInt(document.getElementById("as-qty").value) || 0;
+  if (qty <= 0) { alert("Please enter a quantity of at least 1."); return; }
+
+  const p = products.find(x => x.id == addStocksSelectedId);
+  if (!p) return;
+
+  const btn = document.getElementById("as-confirm-btn");
+  btn.disabled = true; btn.textContent = "Saving…";
+
+  const newStock = p.stock + qty;
+  p.stock = newStock;
+  p._dirty = true;
+
+  const updateData = { stock: newStock, _dirty: 1 };
+  if (p.localId) {
+    await localDB.products.update(p.localId, updateData);
+  }
+
+  btn.disabled = false; btn.textContent = "✔ Add to Stock";
+  closeModal("addstocks-modal");
+  renderInventory();
+  renderProducts();
+  updateRestockBanner();
+
+  if (isOnline) syncPendingChanges();
+
+  // Brief toast-style confirmation
+  showAddStocksToast(p.name, qty, newStock);
+}
+
+function quickAddStocks(id) {
+  openAddStocksModal();
+  // Pre-select the product after modal opens
+  setTimeout(() => addStocksSelectProduct(id), 50);
+}
+
+function showAddStocksToast(name, added, newTotal) {
+  let toast = document.getElementById("addstocks-toast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "addstocks-toast";
+    toast.style.cssText = `position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+      background:#1a1a2e;color:#fff;padding:10px 18px;border-radius:10px;font-size:.88rem;
+      font-weight:600;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.3);transition:opacity .3s;
+      white-space:nowrap;pointer-events:none;`;
+    document.body.appendChild(toast);
+  }
+  toast.textContent = `✅ +${added} added to "${name}" — now ${newTotal} pcs`;
+  toast.style.opacity = "1";
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => { toast.style.opacity = "0"; }, 2800);
 }
 
 // ═══════════════════════════════════════════
