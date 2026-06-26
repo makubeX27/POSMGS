@@ -547,6 +547,66 @@
   .receipt-row { display: flex; justify-content: space-between; padding: 2px 0; }
   .receipt-total { font-weight: 800; font-size: .95rem; }
 
+  /* ── RESTOCK ALERT BANNER ── */
+  .restock-banner {
+    display: none;
+    background: linear-gradient(135deg, #fff3cd, #ffeeba);
+    border: 1.5px solid #f4b731;
+    border-radius: 10px;
+    margin: 10px 16px 0;
+    padding: 10px 14px;
+    cursor: pointer;
+    transition: box-shadow .15s;
+  }
+  .restock-banner.show { display: flex; align-items: center; gap: 10px; }
+  .restock-banner:hover { box-shadow: 0 2px 8px rgba(196,138,18,.25); }
+  .restock-banner-icon { font-size: 1.3rem; flex-shrink: 0; }
+  .restock-banner-text { flex: 1; font-size: .82rem; font-weight: 700; color: #7a5000; }
+  .restock-banner-count {
+    background: #f4b731; color: #5a3a00;
+    font-size: .72rem; font-weight: 800;
+    padding: 2px 8px; border-radius: 20px;
+  }
+
+  /* ── RESTOCK MODAL ── */
+  .restock-modal { max-width: 420px; width: 95vw; max-height: 80vh; display: flex; flex-direction: column; }
+  .restock-modal h3 { margin-bottom: 4px; }
+  .restock-subtitle { font-size: .78rem; color: var(--muted); margin-bottom: 14px; }
+  .restock-threshold-row {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--bg); border-radius: 8px;
+    padding: 10px 12px; margin-bottom: 14px;
+    border: 1.5px solid var(--border);
+  }
+  .restock-threshold-row label { flex: 1; font-size: .82rem; font-weight: 600; color: var(--text); }
+  .restock-threshold-input {
+    width: 64px; text-align: center;
+    border: 1.5px solid var(--border); border-radius: 8px;
+    padding: 5px 8px; font-size: .9rem; font-weight: 700;
+    outline: none;
+  }
+  .restock-threshold-input:focus { border-color: var(--yellow-dk); }
+  .restock-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+  .restock-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; border-radius: 8px;
+    border: 1.5px solid var(--border);
+    background: var(--card);
+  }
+  .restock-item.out { border-color: #ffcdd2; background: #fff8f8; }
+  .restock-item.low { border-color: #ffe082; background: #fffde7; }
+  .restock-item-emoji { font-size: 1.3rem; }
+  .restock-item-info { flex: 1; min-width: 0; }
+  .restock-item-name { font-size: .85rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .restock-item-cat { font-size: .72rem; color: var(--muted); }
+  .restock-item-stock { text-align: right; }
+  .restock-item-qty { font-size: 1rem; font-weight: 800; font-family: "Nunito", sans-serif; }
+  .restock-item-qty.out { color: var(--red); }
+  .restock-item-qty.low { color: #c98a12; }
+  .restock-item-label { font-size: .65rem; font-weight: 700; text-transform: uppercase; color: var(--muted); }
+  .restock-empty { text-align: center; padding: 28px; color: var(--muted); font-size: .88rem; }
+  .restock-modal-footer { display: flex; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+
   /* ── SCROLLBAR ── */
   ::-webkit-scrollbar { width: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -797,6 +857,13 @@
 <div class="cart-backdrop" id="cart-backdrop" onclick="toggleCartDrawer(false)"></div>
 </div>
 
+<!-- ═══════════════ RESTOCK ALERT BANNER ═══════════════ -->
+<div class="restock-banner" id="restock-banner" onclick="openRestockModal()">
+  <div class="restock-banner-icon">⚠️</div>
+  <div class="restock-banner-text" id="restock-banner-text">Items need restocking</div>
+  <div class="restock-banner-count" id="restock-banner-count">0</div>
+</div>
+
 <!-- ═══════════════ ANALYTICS VIEW ═══════════════ -->
 <div id="view-analytics" class="view">
 <div class="analytics-view">
@@ -859,6 +926,7 @@
   <div class="inv-header">
     <h2>📦 Inventory</h2>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn-sec" onclick="openRestockModal()">🔔 Restock List</button>
       <button class="btn-primary" onclick="openAddCategory()">+ Category</button>
       <button class="btn-primary" onclick="openAddProduct()">+ Add Product</button>
     </div>
@@ -903,9 +971,27 @@
     </div>
     <div class="form-row"><label>Price (₱)</label><input id="pm-price" type="number" min="0" step="0.25" placeholder="0.00"></div>
     <div class="form-row"><label>Stock Quantity</label><input id="pm-stock" type="number" min="0" placeholder="0"></div>
+    <div class="form-row"><label>Reorder Point <span style="font-weight:400;color:var(--muted)">(alert when stock ≤ this)</span></label><input id="pm-reorder" type="number" min="0" placeholder="5"></div>
     <div class="modal-actions">
       <button class="btn-sec" onclick="closeModal('product-modal')">Cancel</button>
       <button class="btn-primary" onclick="saveProduct()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ RESTOCK MODAL ═══════ -->
+<div class="modal-overlay" id="restock-modal">
+  <div class="modal restock-modal">
+    <h3>🔔 Restock List</h3>
+    <p class="restock-subtitle">Items at or below their reorder point</p>
+    <div class="restock-threshold-row">
+      <label>Global reorder threshold (for products without a custom point)</label>
+      <input class="restock-threshold-input" type="number" id="global-threshold" min="1" max="999" value="5" oninput="renderRestockList()">
+    </div>
+    <div class="restock-list" id="restock-list"></div>
+    <div class="restock-modal-footer">
+      <button class="btn-sec" style="flex:1" onclick="closeModal('restock-modal')">Close</button>
+      <button class="btn-primary" style="flex:1" onclick="exportRestockCSV()">📥 Export List</button>
     </div>
   </div>
 </div>
@@ -1154,6 +1240,7 @@ async function loadFromLocal() {
     localId: p.localId,
     name: p.name, cat: p.cat, emoji: p.emoji || "📦",
     price: Number(p.price), stock: p.stock, barcode: p.barcode || "",
+    reorder: p.reorder != null ? p.reorder : null,
     _dirty: p._dirty || false
   }));
 
@@ -1199,6 +1286,7 @@ async function syncFromRemote() {
         localId: p.localId,
         name: p.name, cat: p.cat, emoji: p.emoji || "📦",
         price: Number(p.price), stock: p.stock, barcode: p.barcode || "",
+        reorder: p.reorder != null ? p.reorder : null,
         _dirty: p._dirty || false
       }));
     }
@@ -1369,7 +1457,8 @@ function renderProducts() {
   }
 
   grid.innerHTML = filtered.map(p => {
-    const low = p.stock > 0 && p.stock <= 5;
+    const threshold = (p.reorder != null && p.reorder >= 0) ? p.reorder : getGlobalThreshold();
+    const low = p.stock > 0 && p.stock <= threshold;
     const out = p.stock === 0;
     return `
       <div class="prod-card${out?" out-of-stock":""}" onclick="addToCart('${p.id}')">
@@ -1592,6 +1681,7 @@ async function confirmCheckout() {
   toggleCartDrawer(false);
   renderProducts();
   renderInventory();
+  updateRestockBanner();
 
   // ── 4. Try to push to Supabase immediately if online ─────────
   if (isOnline) {
@@ -1977,7 +2067,8 @@ function renderInventory() {
   }
 
   tbody.innerHTML = filtered.map(p => {
-    const status = p.stock===0 ? "out" : p.stock<=5 ? "low" : "ok";
+    const threshold = (p.reorder != null && p.reorder >= 0) ? p.reorder : getGlobalThreshold();
+    const status = p.stock===0 ? "out" : p.stock<=threshold ? "low" : "ok";
     const labels = { ok:"In Stock", low:"Low Stock", out:"Out of Stock" };
     return `<tr>
       <td><span style="margin-right:6px">${p.emoji||"📦"}</span>${p.name}${p._dirty?' <span style="font-size:.65rem;color:var(--yellow-dk)">⚡</span>':""}</td>
@@ -2048,6 +2139,7 @@ function openAddProduct() {
   document.getElementById("pm-barcode").value = "";
   document.getElementById("pm-price").value = "";
   document.getElementById("pm-stock").value = "";
+  document.getElementById("pm-reorder").value = "";
   document.getElementById("product-modal").classList.add("open");
 }
 
@@ -2063,6 +2155,7 @@ function openEditProduct(id) {
   document.getElementById("pm-barcode").value = p.barcode||"";
   document.getElementById("pm-price").value = p.price;
   document.getElementById("pm-stock").value = p.stock;
+  document.getElementById("pm-reorder").value = p.reorder != null ? p.reorder : "";
   document.getElementById("product-modal").classList.add("open");
 }
 
@@ -2083,12 +2176,14 @@ async function saveProduct() {
   const saveBtn = document.querySelector("#product-modal .btn-primary");
   if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Saving…"; }
 
-  const row = { name, cat, emoji, price, stock, barcode: barcode || "", _dirty: 1 };
+  const reorderRaw = document.getElementById("pm-reorder").value;
+  const reorder = reorderRaw !== "" ? parseInt(reorderRaw) : null;
+  const row = { name, cat, emoji, price, stock, reorder, barcode: barcode || "", _dirty: 1 };
 
   if (editingProductId) {
     const p = products.find(x=>x.id==editingProductId);
     if (p) {
-      Object.assign(p, { name, cat, emoji, price, stock, barcode: barcode||"", _dirty: true });
+      Object.assign(p, { name, cat, emoji, price, stock, reorder: reorder, barcode: barcode||"", _dirty: true });
       if (p.localId) {
         await localDB.products.update(p.localId, row);
       }
@@ -2102,6 +2197,7 @@ async function saveProduct() {
   closeModal("product-modal");
   renderProducts();
   renderInventory();
+  updateRestockBanner();
 
   if (isOnline) syncPendingChanges();
 }
@@ -2183,6 +2279,101 @@ function closeScanner() {
 }
 
 // ═══════════════════════════════════════════
+//  RESTOCK SYSTEM
+// ═══════════════════════════════════════════
+let globalThreshold = parseInt(localStorage.getItem("restock_threshold") || "5");
+
+function getGlobalThreshold() { return globalThreshold; }
+
+function getNeedsRestock() {
+  return products.filter(p => {
+    const threshold = (p.reorder != null && p.reorder >= 0) ? p.reorder : globalThreshold;
+    return p.stock <= threshold;
+  }).sort((a, b) => a.stock - b.stock);
+}
+
+function updateRestockBanner() {
+  const items = getNeedsRestock();
+  const banner = document.getElementById("restock-banner");
+  const bannerText = document.getElementById("restock-banner-text");
+  const bannerCount = document.getElementById("restock-banner-count");
+  if (!banner) return;
+  if (items.length === 0) {
+    banner.classList.remove("show");
+    return;
+  }
+  const outCount = items.filter(p => p.stock === 0).length;
+  const lowCount = items.length - outCount;
+  let msg = "";
+  if (outCount && lowCount) msg = `${outCount} out of stock · ${lowCount} running low`;
+  else if (outCount) msg = `${outCount} item${outCount>1?"s":""} out of stock`;
+  else msg = `${lowCount} item${lowCount>1?"s":""} running low`;
+  bannerText.textContent = msg;
+  bannerCount.textContent = items.length;
+  banner.classList.add("show");
+}
+
+function openRestockModal() {
+  document.getElementById("global-threshold").value = globalThreshold;
+  renderRestockList();
+  document.getElementById("restock-modal").classList.add("open");
+}
+
+function renderRestockList() {
+  const newVal = parseInt(document.getElementById("global-threshold").value);
+  if (!isNaN(newVal) && newVal >= 0) {
+    globalThreshold = newVal;
+    localStorage.setItem("restock_threshold", globalThreshold);
+    updateRestockBanner();
+    renderProducts();
+    renderInventory();
+  }
+  const list = document.getElementById("restock-list");
+  const items = getNeedsRestock();
+  if (!items.length) {
+    list.innerHTML = `<div class="restock-empty">✅ All items are sufficiently stocked!</div>`;
+    return;
+  }
+  list.innerHTML = items.map(p => {
+    const isOut = p.stock === 0;
+    const threshold = (p.reorder != null && p.reorder >= 0) ? p.reorder : globalThreshold;
+    return `<div class="restock-item ${isOut?"out":"low"}">
+      <div class="restock-item-emoji">${p.emoji||"📦"}</div>
+      <div class="restock-item-info">
+        <div class="restock-item-name">${p.name}</div>
+        <div class="restock-item-cat">${p.cat} · reorder at ≤${threshold}</div>
+      </div>
+      <div class="restock-item-stock">
+        <div class="restock-item-qty ${isOut?"out":"low"}">${p.stock}</div>
+        <div class="restock-item-label">${isOut?"OUT":"pcs left"}</div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function exportRestockCSV() {
+  const items = getNeedsRestock();
+  if (!items.length) { alert("No items need restocking."); return; }
+  const rows = [["Product","Category","Current Stock","Reorder Point","Status"]];
+  items.forEach(p => {
+    const threshold = (p.reorder != null && p.reorder >= 0) ? p.reorder : globalThreshold;
+    const status = p.stock === 0 ? "Out of Stock" : "Low Stock";
+    rows.push([p.name, p.cat, p.stock, threshold, status]);
+  });
+  const csv = rows.map(r => r.map(v => {
+    const s = String(v ?? "");
+    return s.includes(",") || s.includes('"') ? `"${s.replace(/"/g,'""')}"` : s;
+  }).join(",")).join("\r\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "Restock_List_" + new Date().toISOString().slice(0,10) + ".csv";
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+// ═══════════════════════════════════════════
 //  INIT — local-first, then sync
 // ═══════════════════════════════════════════
 async function init() {
@@ -2229,6 +2420,7 @@ async function init() {
   // start real connectivity checks (navigator.onLine alone is unreliable —
   // it only reflects the network adapter, not actual internet/server reachability)
   startConnectionWatcher();
+  updateRestockBanner();
 }
 init();
 </script>
