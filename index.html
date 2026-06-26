@@ -1,0 +1,2195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tindahan POS – Sari-Sari Store</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dexie@3/dist/dexie.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Noto+Sans:wght@400;500;600&display=swap');
+
+  :root {
+    --red:     #D72E2A;
+    --red-dk:  #A91F1C;
+    --red-deep:#7A1512;
+    --yellow:  #F4B731;
+    --yellow-dk:#C98A12;
+    --yellow-lt:#FEF3CB;
+    --blue:    #1565C0;
+    --blue-lt: #E3F0FF;
+    --green:   #2E7D32;
+    --green-lt:#E8F5E9;
+    --bg:      #FBF4E8;
+    --card:    #FFFFFF;
+    --border:  #EADFCD;
+    --text:    #1F160C;
+    --muted:   #7C6B57;
+    --shadow:  0 2px 8px rgba(31,22,12,.07);
+    --shadow-lg: 0 8px 28px rgba(31,22,12,.16);
+    --radius: 12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+
+  body {
+    font-family: 'Noto Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: linear-gradient(135deg, var(--red) 0%, var(--red-dk) 100%);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    height: 56px;
+    flex: 0 0 56px;
+    box-shadow: 0 2px 6px rgba(0,0,0,.2);
+    position: relative; z-index: 100;
+  }
+  .logo {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 900;
+    font-size: 1.3rem;
+    letter-spacing: -.3px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .logo span { font-size: 1.5rem; filter: drop-shadow(0 1px 1px rgba(0,0,0,.15)); }
+  .header-info { font-size: .8rem; opacity: .9; text-align: right; }
+  .header-info strong { display: block; font-size: .95rem; letter-spacing: .2px; }
+
+  /* ── NAV TABS ── */
+  .nav-tabs {
+    display: flex;
+    background: var(--red-deep);
+    padding: 0 16px;
+    flex: 0 0 auto;
+    box-shadow: inset 0 6px 10px -8px rgba(0,0,0,.5);
+  }
+  .nav-tab {
+    padding: 10px 18px;
+    color: rgba(255,255,255,.62);
+    cursor: pointer;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700;
+    font-size: .88rem;
+    border-bottom: 3px solid transparent;
+    transition: color .15s, border-color .15s;
+    user-select: none;
+  }
+  .nav-tab.active { color: #fff; border-color: var(--yellow); }
+  .nav-tab:hover:not(.active) { color: #fff; }
+
+  /* ── VIEWS ── */
+  .view { display: none; flex: 1; min-height: 0; overflow: hidden; }
+  .view.active { display: flex; flex-direction: column; }
+  #view-analytics.active, #view-inventory.active { display: block; overflow-y: auto; }
+
+  /* ── POS LAYOUT ── */
+  .pos-layout {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 0;
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* ── PRODUCT GRID ── */
+  .product-panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .product-toolbar {
+    padding: 12px 16px;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  }
+  .search-box {
+    flex: 1; min-width: 160px;
+    padding: 8px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-size: .9rem;
+    background: var(--bg);
+    outline: none;
+    transition: border-color .15s;
+  }
+  .search-box:focus { border-color: var(--red); }
+  .cat-filter {
+    display: flex; gap: 6px; flex-wrap: wrap;
+  }
+  .cat-btn {
+    padding: 6px 13px;
+    border-radius: 20px;
+    border: 1.5px solid var(--border);
+    background: var(--card);
+    font-size: .8rem; font-weight: 700;
+    cursor: pointer;
+    transition: all .12s;
+  }
+  .cat-btn.active, .cat-btn:hover {
+    background: var(--red); color: #fff; border-color: var(--red);
+  }
+
+  .product-grid {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 12px;
+    align-content: start;
+  }
+  .prod-card {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 10px 12px;
+    cursor: pointer;
+    text-align: center;
+    transition: transform .12s, box-shadow .12s, border-color .12s;
+    user-select: none;
+    position: relative;
+    box-shadow: 0 1px 3px rgba(31,22,12,.04);
+  }
+  .prod-card:hover { border-color: var(--red); box-shadow: 0 0 0 3px rgba(215,46,42,.1), var(--shadow); transform: translateY(-2px); }
+  .prod-card:active { transform: scale(.97); }
+  .prod-emoji { font-size: 2rem; display: block; margin-bottom: 6px; }
+  .prod-name { font-size: .8rem; font-weight: 600; color: var(--text); line-height: 1.25; margin-bottom: 5px; min-height: 2.2em; }
+  .prod-price { font-size: .92rem; font-weight: 800; color: var(--red); font-family: 'Nunito', sans-serif; }
+  .prod-stock { font-size: .68rem; color: var(--muted); margin-top: 3px; }
+  .prod-card.out-of-stock { opacity: .45; pointer-events: none; }
+  .low-stock-badge {
+    position: absolute; top: 6px; right: 6px;
+    background: var(--yellow); color: #6b4a05;
+    font-size: .6rem; font-weight: 800;
+    padding: 2px 6px; border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.12);
+  }
+
+  /* ── CART PANEL ── */
+  .cart-panel {
+    background: var(--card);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .cart-header {
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .cart-title {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800; font-size: 1.05rem;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .cart-clear {
+    font-size: .75rem; color: var(--muted);
+    cursor: pointer; text-decoration: underline;
+    transition: color .12s;
+  }
+  .cart-clear:hover { color: var(--red); }
+  .cart-items {
+    flex: 1; overflow-y: auto;
+    padding: 10px 12px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .cart-empty {
+    text-align: center; color: var(--muted);
+    padding: 40px 20px; font-size: .9rem;
+  }
+  .cart-empty span { font-size: 2.5rem; display: block; margin-bottom: 8px; }
+  .cart-item {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--bg); border-radius: 8px;
+    padding: 9px 10px;
+    border: 1px solid var(--border);
+  }
+  .ci-name { flex: 1; font-size: .82rem; font-weight: 600; }
+  .ci-controls { display: flex; align-items: center; gap: 5px; }
+  .ci-btn {
+    width: 24px; height: 24px; border-radius: 6px;
+    border: none; background: var(--border);
+    font-size: 1rem; line-height: 1; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; transition: background .1s, color .1s;
+  }
+  .ci-btn:hover { background: var(--red); color: #fff; }
+  .ci-qty { font-size: .85rem; font-weight: 700; min-width: 20px; text-align: center; }
+  .ci-total { font-size: .85rem; font-weight: 800; color: var(--red); font-family: 'Nunito', sans-serif; min-width: 56px; text-align: right; }
+  .ci-remove { color: var(--muted); cursor: pointer; font-size: .9rem; margin-left: 2px; transition: color .12s; }
+  .ci-remove:hover { color: var(--red); }
+
+  .cart-footer {
+    padding: 14px 16px 16px;
+    border-top: 2px solid var(--border);
+    background: linear-gradient(to bottom, var(--card), var(--bg) 220%);
+  }
+  .subtotal-row, .discount-row, .total-row {
+    display: flex; justify-content: space-between;
+    align-items: center; margin-bottom: 7px;
+    font-size: .88rem;
+  }
+  .total-row {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800; font-size: 1.2rem;
+    padding-top: 8px; border-top: 1.5px dashed var(--border);
+    margin-top: 4px;
+  }
+  .total-row span:last-child { color: var(--red); }
+  .discount-input {
+    width: 70px; text-align: right;
+    border: 1.5px solid var(--border); border-radius: 6px;
+    padding: 3px 6px; font-size: .85rem;
+    outline: none;
+  }
+  .discount-input:focus { border-color: var(--red); }
+  .tendered-row {
+    display: flex; gap: 8px; align-items: center; margin-bottom: 8px;
+  }
+  .tendered-input {
+    flex: 1;
+    border: 1.5px solid var(--border); border-radius: 8px;
+    padding: 8px 10px; font-size: .95rem;
+    outline: none; text-align: right; font-weight: 700;
+  }
+  .tendered-input:focus { border-color: var(--blue); }
+  .change-display {
+    background: var(--green-lt);
+    border-radius: 8px; padding: 9px 12px;
+    display: flex; justify-content: space-between;
+    font-weight: 700; margin-bottom: 12px;
+    font-size: .9rem; color: var(--green);
+    transition: background .15s, color .15s;
+  }
+  .change-display.negative { background: #FFEBEE; color: var(--red); }
+  .checkout-btn {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, var(--red) 0%, var(--red-dk) 100%);
+    color: #fff;
+    border: none; border-radius: 10px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 1.05rem; font-weight: 800;
+    cursor: pointer;
+    transition: filter .15s, transform .1s;
+    letter-spacing: .3px;
+    box-shadow: 0 3px 10px rgba(169,31,28,.3);
+  }
+  .checkout-btn:hover { filter: brightness(1.08); }
+  .checkout-btn:active { transform: scale(.99); }
+  .checkout-btn:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; box-shadow: none; }
+
+  /* ── QUICK AMOUNT BTNS ── */
+  .quick-amounts { display: flex; gap: 5px; margin-bottom: 8px; flex-wrap: wrap; }
+  .qa-btn {
+    flex: 1; min-width: 52px;
+    padding: 5px;
+    border: 1.5px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    font-size: .78rem; font-weight: 700;
+    cursor: pointer; transition: all .1s;
+  }
+  .qa-btn:hover { border-color: var(--blue); background: var(--blue-lt); color: var(--blue); }
+
+  /* ── ANALYTICS VIEW ── */
+  .analytics-view {
+    padding: 20px;
+    max-width: 1100px; margin: 0 auto;
+  }
+  .analytics-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
+  }
+  .analytics-header h2 {
+    font-family: 'Nunito', sans-serif;
+    font-size: 1.4rem; font-weight: 900;
+  }
+  .date-range {
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  }
+  .date-range select, .date-range input {
+    border: 1.5px solid var(--border); border-radius: 8px;
+    padding: 6px 10px; font-size: .85rem; outline: none;
+    background: var(--card);
+  }
+  .date-range select:focus, .date-range input:focus { border-color: var(--red); }
+
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px; margin-bottom: 24px;
+  }
+  .kpi-card {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 18px 16px;
+    border: 1.5px solid var(--border);
+    border-top: 3px solid var(--border);
+    box-shadow: var(--shadow);
+  }
+  .kpi-label { font-size: .75rem; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+  .kpi-value {
+    font-family: 'Nunito', sans-serif;
+    font-size: 1.7rem; font-weight: 900;
+    color: var(--text);
+  }
+  .kpi-sub { font-size: .75rem; color: var(--muted); margin-top: 4px; }
+  .kpi-card.red { border-top-color: var(--red); }
+  .kpi-card.green { border-top-color: var(--green); }
+  .kpi-card.blue { border-top-color: var(--blue); }
+  .kpi-card.red .kpi-value { color: var(--red); }
+  .kpi-card.green .kpi-value { color: var(--green); }
+  .kpi-card.blue .kpi-value { color: var(--blue); }
+
+  .charts-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px; margin-bottom: 24px;
+  }
+  @media (max-width: 700px) { .charts-row { grid-template-columns: 1fr; } }
+
+  .chart-card {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 18px;
+    border: 1.5px solid var(--border);
+    box-shadow: var(--shadow);
+  }
+  .chart-title {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800; font-size: .95rem;
+    margin-bottom: 14px; color: var(--text);
+  }
+  .bar-chart-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .bar-chart { display: flex; align-items: flex-end; gap: 6px; height: 130px; min-width: 100%; }
+  .bar-col { flex: 0 0 auto; width: 28px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .bar {
+    width: 100%; border-radius: 5px 5px 0 0;
+    background: var(--red);
+    transition: height .3s;
+    min-height: 4px;
+    cursor: default;
+    position: relative;
+  }
+  .bar:hover::after {
+    content: attr(data-val);
+    position: absolute; top: -24px; left: 50%; transform: translateX(-50%);
+    background: var(--text); color: #fff;
+    font-size: .7rem; padding: 2px 6px; border-radius: 4px;
+    white-space: nowrap;
+  }
+  .bar-lbl { font-size: .68rem; color: var(--muted); font-weight: 600; }
+
+  /* Donut chart */
+  .donut-wrap { display: flex; align-items: center; gap: 16px; }
+  .donut-svg { flex-shrink: 0; }
+  .donut-legend { flex: 1; display: flex; flex-direction: column; gap: 7px; }
+  .legend-item { display: flex; align-items: center; gap: 7px; font-size: .78rem; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .legend-pct { margin-left: auto; font-weight: 700; font-size: .8rem; }
+
+  /* Transactions table */
+  .table-card {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 18px;
+    border: 1.5px solid var(--border);
+    box-shadow: var(--shadow);
+    overflow-x: auto;
+  }
+  .table-card table {
+    width: 100%; border-collapse: collapse;
+    font-size: .83rem;
+  }
+  .table-card th {
+    text-align: left; padding: 6px 10px;
+    color: var(--muted); font-weight: 600;
+    font-size: .75rem; text-transform: uppercase;
+    border-bottom: 2px solid var(--border);
+  }
+  .table-card td {
+    padding: 9px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .table-card tr:last-child td { border-bottom: none; }
+  .table-card tr:hover td { background: var(--bg); }
+  .tx-total { font-weight: 700; font-family: 'Nunito', sans-serif; color: var(--green); }
+
+  /* ── INVENTORY VIEW ── */
+  .inventory-view {
+    padding: 20px;
+    max-width: 900px; margin: 0 auto;
+  }
+  .inv-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 16px; flex-wrap: wrap; gap: 10px;
+  }
+  .inv-header h2 {
+    font-family: 'Nunito', sans-serif;
+    font-size: 1.4rem; font-weight: 900;
+  }
+  .btn-primary {
+    padding: 8px 18px;
+    background: var(--red); color: #fff;
+    border: none; border-radius: 8px;
+    font-weight: 700; font-size: .88rem; cursor: pointer;
+    transition: background .15s;
+  }
+  .btn-primary:hover { background: var(--red-dk); }
+  .inv-toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex-wrap: wrap; margin-bottom: 14px;
+  }
+  .inv-cat-filter { display: flex; gap: 6px; flex-wrap: wrap; }
+  .inv-toggle {
+    display: flex; align-items: center; gap: 8px;
+    font-size: .85rem; font-weight: 600; color: var(--text);
+    cursor: pointer; user-select: none;
+  }
+  .switch {
+    position: relative; width: 38px; height: 22px;
+    flex-shrink: 0;
+  }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch-slider {
+    position: absolute; inset: 0; background: var(--border);
+    border-radius: 22px; transition: background .15s; cursor: pointer;
+  }
+  .switch-slider::before {
+    content: ''; position: absolute; left: 2px; top: 2px;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: #fff; transition: transform .15s; box-shadow: 0 1px 3px rgba(0,0,0,.25);
+  }
+  .switch input:checked + .switch-slider { background: var(--red); }
+  .switch input:checked + .switch-slider::before { transform: translateX(16px); }
+  .inv-empty-row td { text-align: center; color: var(--muted); padding: 28px; }
+  .inv-table-wrap { background: var(--card); border-radius: 14px; border: 1.5px solid var(--border); overflow: hidden; box-shadow: var(--shadow); }
+  .inv-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  .inv-table th {
+    background: var(--bg); text-align: left;
+    padding: 10px 14px; font-size: .75rem;
+    color: var(--muted); font-weight: 600; text-transform: uppercase;
+    border-bottom: 2px solid var(--border);
+  }
+  .inv-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  .inv-table tr:last-child td { border-bottom: none; }
+  .inv-table tr:hover td { background: var(--bg); }
+  .stock-pill {
+    display: inline-block; padding: 2px 10px; border-radius: 20px;
+    font-size: .75rem; font-weight: 700;
+  }
+  .stock-ok { background: var(--green-lt); color: var(--green); }
+  .stock-low { background: var(--yellow-lt); color: #7a5000; }
+  .stock-out { background: #FFEBEE; color: var(--red); }
+  .edit-btn {
+    padding: 4px 10px; border-radius: 6px;
+    border: 1.5px solid var(--border); background: var(--card);
+    font-size: .78rem; font-weight: 600; cursor: pointer;
+    transition: all .1s;
+  }
+  .edit-btn:hover { border-color: var(--blue); color: var(--blue); }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.45); z-index: 200;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--card); border-radius: 16px;
+    padding: 24px; width: 360px; max-width: 95vw;
+    box-shadow: var(--shadow-lg);
+  }
+  .modal h3 {
+    font-family: 'Nunito', sans-serif;
+    font-size: 1.1rem; font-weight: 800; margin-bottom: 16px;
+  }
+  .form-row { margin-bottom: 12px; }
+  .form-row label { display: block; font-size: .8rem; font-weight: 600; margin-bottom: 4px; color: var(--muted); }
+  .form-row input, .form-row select {
+    width: 100%; padding: 8px 10px;
+    border: 1.5px solid var(--border); border-radius: 8px;
+    font-size: .9rem; outline: none;
+    transition: border-color .15s;
+  }
+  .form-row input:focus, .form-row select:focus { border-color: var(--red); }
+  .modal-actions { display: flex; gap: 10px; margin-top: 18px; }
+  .btn-sec {
+    flex: 1; padding: 9px;
+    border: 1.5px solid var(--border); border-radius: 8px;
+    background: var(--card); font-weight: 700; cursor: pointer;
+    font-size: .88rem; transition: background .12s;
+  }
+  .btn-sec:hover { background: var(--bg); }
+
+  /* ── RECEIPT MODAL ── */
+  .receipt { font-family: 'Noto Sans', monospace; font-size: .82rem; }
+  .receipt-store { text-align: center; margin-bottom: 12px; }
+  .receipt-store h4 { font-family: 'Nunito', sans-serif; font-size: 1.1rem; font-weight: 900; color: var(--red); }
+  .receipt-divider { border: none; border-top: 1px dashed var(--border); margin: 8px 0; }
+  .receipt-row { display: flex; justify-content: space-between; padding: 2px 0; }
+  .receipt-total { font-weight: 800; font-size: .95rem; }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+  /* ── NO RESULTS ── */
+  .no-results {
+    grid-column: 1 / -1;
+    text-align: center; padding: 40px; color: var(--muted);
+    font-size: .9rem;
+  }
+
+  /* ── MOBILE CART BAR (phone/tablet) ── */
+  .mobile-cart-bar {
+    display: none;
+    position: fixed; left: 0; right: 0; bottom: 0;
+    background: var(--red); color: #fff;
+    align-items: center; justify-content: space-between;
+    padding: 13px 18px;
+    padding-bottom: calc(13px + env(safe-area-inset-bottom));
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800; font-size: .92rem;
+    cursor: pointer;
+    z-index: 130;
+    box-shadow: 0 -2px 12px rgba(0,0,0,.22);
+  }
+  .mobile-cart-bar.show { display: none; }
+  @media (max-width: 880px) {
+    .mobile-cart-bar.show { display: flex; }
+  }
+
+  /* ── CART BACKDROP (phone/tablet) ── */
+  .cart-backdrop {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.45);
+    z-index: 140;
+  }
+  .cart-backdrop.show { display: block; }
+
+  /* ── MOBILE CLOSE BUTTON ON CART DRAWER ── */
+  .cart-mobile-close {
+    display: none;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--bg); color: var(--muted);
+    align-items: center; justify-content: center;
+    font-size: .85rem; cursor: pointer; flex-shrink: 0;
+  }
+
+  /* ════════════════════════════════════════════
+     RESPONSIVE BREAKPOINTS
+     ════════════════════════════════════════════ */
+
+  /* ── TABLET / PHONE (≤880px): cart becomes a slide-up drawer ── */
+  @media (max-width: 880px) {
+    .pos-layout { grid-template-columns: 1fr; }
+
+    .cart-panel {
+      position: fixed; left: 0; right: 0; bottom: 0;
+      width: auto;
+      max-height: 78vh;
+      border-left: none;
+      border-radius: 18px 18px 0 0;
+      box-shadow: 0 -6px 24px rgba(0,0,0,.22);
+      transform: translateY(100%);
+      transition: transform .28s ease;
+      z-index: 150;
+    }
+    .cart-panel.open { transform: translateY(0); }
+    .cart-mobile-close { display: flex; }
+
+    .product-grid { grid-template-columns: repeat(auto-fill, minmax(115px, 1fr)); }
+  }
+
+  /* ── SMALL PHONE (≤480px) ── */
+  @media (max-width: 480px) {
+    header { padding: 0 12px; }
+    .logo { font-size: 1.05rem; gap: 6px; }
+    .logo span { font-size: 1.2rem; }
+    .header-info { font-size: .68rem; }
+    .header-info strong { font-size: .8rem; }
+
+    .nav-tabs { padding: 0 6px; overflow-x: auto; }
+    .nav-tab { padding: 8px 12px; font-size: .8rem; white-space: nowrap; }
+
+    .product-toolbar { padding: 10px 12px; }
+    .product-grid {
+      padding: 10px; gap: 8px;
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    }
+    .prod-card { padding: 9px 7px; }
+    .prod-emoji { font-size: 1.6rem; margin-bottom: 4px; }
+    .prod-name { font-size: .72rem; }
+    .prod-price { font-size: .8rem; }
+
+    .analytics-view, .inventory-view { padding: 12px; }
+    .kpi-card { padding: 14px 12px; }
+    .kpi-value { font-size: 1.4rem; }
+
+    .modal { padding: 18px; width: 100%; }
+
+    .cart-panel { max-height: 85vh; }
+  }
+
+  .inv-table-wrap { overflow-x: auto; }
+
+  /* ── OFFLINE BADGE ── */
+  .sync-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: .72rem; font-weight: 700;
+    padding: 3px 9px; border-radius: 20px;
+    cursor: default; transition: background .3s, color .3s;
+    user-select: none;
+  }
+  .sync-badge.online  { background: rgba(255,255,255,.18); color: #fff; }
+  .sync-badge.offline { background: var(--yellow); color: #6b4a05; }
+  .sync-badge.syncing { background: var(--blue-lt); color: var(--blue); }
+  .sync-badge .dot {
+    width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+  }
+  .sync-badge.online .dot  { background: #6fff91; }
+  .sync-badge.offline .dot { background: #c98a12; }
+  .sync-badge.syncing .dot { background: var(--blue); animation: pulse .8s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><span>🏪</span> Tindahan POS</div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <span class="sync-badge online" id="sync-badge"><span class="dot"></span><span id="sync-label">Online</span></span>
+    <div class="header-info">
+      <strong id="hdr-date"></strong>
+      <span id="hdr-time"></span>
+    </div>
+  </div>
+</header>
+
+<div class="nav-tabs">
+  <div class="nav-tab active" onclick="switchView('pos')">🛒 Cashier</div>
+  <div class="nav-tab" onclick="switchView('analytics')">📊 Analytics</div>
+  <div class="nav-tab" onclick="switchView('inventory')">📦 Inventory</div>
+</div>
+
+<!-- ═══════════════ POS VIEW ═══════════════ -->
+<div id="view-pos" class="view active">
+<div class="pos-layout">
+  <!-- Products -->
+  <div class="product-panel">
+    <div class="product-toolbar">
+      <input class="search-box" type="text" placeholder="Search product…" id="search-input" oninput="renderProducts()">
+      <button class="btn-primary" style="white-space:nowrap;padding:8px 14px;font-size:.85rem" onclick="openScanner()">📷 Scan</button>
+      <div class="cat-filter" id="cat-filter"></div>
+    </div>
+    <div class="product-grid" id="product-grid"></div>
+  </div>
+
+  <!-- Cart -->
+  <div class="cart-panel" id="cart-panel">
+    <div class="cart-header">
+      <div class="cart-title">🧾 Order</div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <div class="cart-clear" onclick="clearCart()">Clear all</div>
+        <div class="cart-mobile-close" onclick="toggleCartDrawer(false)">✕</div>
+      </div>
+    </div>
+    <div class="cart-items" id="cart-items">
+      <div class="cart-empty" id="cart-empty">
+        <span>🛍️</span>Add items to get started
+      </div>
+    </div>
+    <div class="cart-footer">
+      <div class="subtotal-row">
+        <span>Subtotal</span><span id="subtotal">₱0.00</span>
+      </div>
+      <div class="discount-row">
+        <span>Discount (₱)</span>
+        <input class="discount-input" type="number" id="discount-input" value="0" min="0" oninput="updateTotals()">
+      </div>
+      <div class="total-row">
+        <span>TOTAL</span><span id="total-display">₱0.00</span>
+      </div>
+      <div class="quick-amounts" id="quick-amounts"></div>
+      <div class="tendered-row">
+        <span style="font-size:.82rem;font-weight:600;color:var(--muted)">Cash</span>
+        <input class="tendered-input" type="number" id="tendered-input" placeholder="0.00" oninput="updateChange()">
+      </div>
+      <div class="change-display" id="change-display">
+        <span>Change</span><span id="change-val">—</span>
+      </div>
+      <button class="checkout-btn" id="checkout-btn" onclick="checkout()" disabled>Checkout</button>
+    </div>
+  </div>
+</div>
+<div class="mobile-cart-bar" id="mobile-cart-bar" onclick="toggleCartDrawer(true)">
+  <span>🧾 View Cart (<span id="mobile-cart-count">0</span>)</span>
+  <span id="mobile-cart-total">₱0.00</span>
+</div>
+<div class="cart-backdrop" id="cart-backdrop" onclick="toggleCartDrawer(false)"></div>
+</div>
+
+<!-- ═══════════════ ANALYTICS VIEW ═══════════════ -->
+<div id="view-analytics" class="view">
+<div class="analytics-view">
+  <div class="analytics-header">
+    <h2>📊 Sales Analytics</h2>
+    <div class="date-range">
+      <select id="range-select" onchange="updateAnalytics()">
+        <option value="today">Today</option>
+        <option value="week" selected>This Week</option>
+        <option value="month">This Month</option>
+        <option value="all">All Time</option>
+      </select>
+      <input type="date" id="csv-start" style="font-size:.8rem;padding:6px 8px;border:1px solid var(--line);border-radius:8px" title="Start date">
+      <span style="font-size:.8rem;color:var(--muted)">to</span>
+      <input type="date" id="csv-end" style="font-size:.8rem;padding:6px 8px;border:1px solid var(--line);border-radius:8px" title="End date">
+      <button class="btn-sec" style="font-size:.8rem;padding:6px 12px;white-space:nowrap" onclick="exportCSV('custom')" title="Export CSV for the selected date range">📥 Export CSV</button>
+    </div>
+  </div>
+  <div class="kpi-row" id="kpi-row"></div>
+  <div class="charts-row">
+    <div class="chart-card">
+      <div class="chart-title">Daily Revenue</div>
+      <div class="bar-chart-wrap">
+        <div class="bar-chart" id="daily-chart"></div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Top Categories</div>
+      <div class="donut-wrap" id="category-chart"></div>
+    </div>
+  </div>
+  <div class="table-card" style="margin-bottom:24px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+      <div class="chart-title" style="margin-bottom:0;">🔥 Fast-Moving Items</div>
+      <div class="date-range">
+        <select id="top-items-limit" onchange="updateAnalytics()">
+          <option value="10" selected>Top 10</option>
+          <option value="20">Top 20</option>
+        </select>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr><th>#</th><th>Item</th><th>Category</th><th>Units Sold</th><th>Revenue</th></tr>
+      </thead>
+      <tbody id="top-items-tbody"></tbody>
+    </table>
+  </div>
+  <div class="table-card">
+    <div class="chart-title">Recent Transactions</div>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th><th>Date & Time</th><th>Items</th><th>Discount</th><th>Total</th><th>Cash</th><th>Change</th>
+        </tr>
+      </thead>
+      <tbody id="tx-tbody"></tbody>
+    </table>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════ INVENTORY VIEW ═══════════════ -->
+<div id="view-inventory" class="view">
+<div class="inventory-view">
+  <div class="inv-header">
+    <h2>📦 Inventory</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn-primary" onclick="openAddCategory()">+ Category</button>
+      <button class="btn-primary" onclick="openAddProduct()">+ Add Product</button>
+    </div>
+  </div>
+  <div class="inv-toolbar">
+    <div class="inv-cat-filter" id="inv-cat-filter"></div>
+    <label class="inv-toggle">
+      <span class="switch">
+        <input type="checkbox" id="inv-hide-oos" onchange="renderInventory()">
+        <span class="switch-slider"></span>
+      </span>
+      Hide out of stock
+    </label>
+  </div>
+  <div class="inv-table-wrap">
+    <table class="inv-table" id="inv-table">
+      <thead>
+        <tr>
+          <th>Product</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="inv-tbody"></tbody>
+    </table>
+  </div>
+</div>
+</div>
+
+<!-- ═══════ PRODUCT MODAL ═══════ -->
+<div class="modal-overlay" id="product-modal">
+  <div class="modal">
+    <h3 id="prod-modal-title">Add Product</h3>
+    <div class="form-row"><label>Name</label><input id="pm-name" type="text" placeholder="e.g. Lucky Me Pancit Canton"></div>
+    <div class="form-row"><label>Category</label>
+      <select id="pm-cat"></select>
+    </div>
+    <div class="form-row"><label>Emoji Icon</label><input id="pm-emoji" type="text" placeholder="🍜" maxlength="2"></div>
+    <div class="form-row"><label>Barcode (optional)</label>
+      <div style="display:flex;gap:6px;">
+        <input id="pm-barcode" type="text" placeholder="e.g. 4800016641199" style="flex:1">
+        <button class="btn-sec" type="button" style="white-space:nowrap" onclick="openScanner(true)">📷</button>
+      </div>
+    </div>
+    <div class="form-row"><label>Price (₱)</label><input id="pm-price" type="number" min="0" step="0.25" placeholder="0.00"></div>
+    <div class="form-row"><label>Stock Quantity</label><input id="pm-stock" type="number" min="0" placeholder="0"></div>
+    <div class="modal-actions">
+      <button class="btn-sec" onclick="closeModal('product-modal')">Cancel</button>
+      <button class="btn-primary" onclick="saveProduct()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ BARCODE SCANNER MODAL ═══════════════ -->
+<div class="modal-overlay" id="scanner-modal">
+  <div class="modal" style="max-width:380px">
+    <h3>📷 Scan Barcode</h3>
+    <div id="scanner-wrap" style="position:relative;border-radius:10px;overflow:hidden;background:#000;aspect-ratio:1/1;margin-top:10px;">
+      <video id="scanner-video" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;"></video>
+      <div style="position:absolute;inset:0;border:3px solid rgba(255,255,255,.5);pointer-events:none;margin:18%;border-radius:10px;"></div>
+    </div>
+    <div id="scanner-status" style="text-align:center;font-size:.85rem;color:var(--muted);margin-top:10px;">Point camera at barcode…</div>
+    <div class="modal-actions">
+      <button class="btn-sec" onclick="closeScanner()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ CATEGORY MODAL ═══════ -->
+<div class="modal-overlay" id="category-modal">
+  <div class="modal">
+    <h3>Add Category</h3>
+    <div class="form-row">
+      <label>Category Name</label>
+      <input id="cm-name" type="text" placeholder="e.g. Frozen Goods" maxlength="24" onkeydown="if(event.key==='Enter') saveCategory()">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sec" onclick="closeModal('category-modal')">Cancel</button>
+      <button class="btn-primary" onclick="saveCategory()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ CONFIRM CHECKOUT MODAL ═══════ -->
+<div class="modal-overlay" id="confirm-modal">
+  <div class="modal">
+    <h3>Confirm Order</h3>
+    <div class="receipt" id="confirm-content" style="margin-bottom:6px;"></div>
+    <div class="modal-actions">
+      <button class="btn-sec" onclick="closeModal('confirm-modal')">Cancel</button>
+      <button class="btn-primary" onclick="confirmCheckout()">✔ Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ RECEIPT MODAL ═══════ -->
+<div class="modal-overlay" id="receipt-modal">
+  <div class="modal">
+    <div class="receipt" id="receipt-content"></div>
+    <div class="modal-actions">
+      <button class="btn-sec" onclick="closeModal('receipt-modal')">Close</button>
+      <button class="btn-primary" onclick="printReceipt()">🖨️ Print</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+// ═══════════════════════════════════════════
+//  SUPABASE SETUP
+// ═══════════════════════════════════════════
+const SUPABASE_URL = "https://mezfahzbfnhwkbuloxgq.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1lemZhaHpiZm5od2tidWxveGdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxOTc0NDEsImV4cCI6MjA5Nzc3MzQ0MX0.IIHhvSh62GOUNjW8bjxdVMmc41C_epIC_DgpPpSoa-c";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const STORE_NAME = "MG Sari-Sari Store";
+
+// ═══════════════════════════════════════════
+//  DEXIE — LOCAL (OFFLINE) DATABASE
+// ═══════════════════════════════════════════
+const localDB = new Dexie("TindahanPOS");
+localDB.version(1).stores({
+  categories:   "++localId, name, sort_order, remoteId, _dirty",
+  products:     "++localId, remoteId, barcode, _dirty",
+  transactions: "++localId, remoteId, tx_date, _dirty"
+});
+
+// ─── helpers ───────────────────────────────
+async function localUpsertCategory(cat) {
+  const existing = cat.remoteId
+    ? await localDB.categories.where("remoteId").equals(cat.remoteId).first()
+    : null;
+  if (existing) {
+    await localDB.categories.update(existing.localId, cat);
+  } else {
+    await localDB.categories.add(cat);
+  }
+}
+
+async function localUpsertProduct(p) {
+  const existing = p.remoteId
+    ? await localDB.products.where("remoteId").equals(p.remoteId).first()
+    : null;
+  if (existing) {
+    await localDB.products.update(existing.localId, p);
+    return existing.localId;
+  } else {
+    return await localDB.products.add(p);
+  }
+}
+
+async function localUpsertTransaction(t) {
+  const existing = t.remoteId
+    ? await localDB.transactions.where("remoteId").equals(t.remoteId).first()
+    : null;
+  if (existing) {
+    await localDB.transactions.update(existing.localId, t);
+    return existing.localId;
+  } else {
+    return await localDB.transactions.add(t);
+  }
+}
+
+// ═══════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════
+let products = [];
+let transactions = [];
+let cart = [];
+let editingProductId = null;   // remoteId (or localId if unsynced)
+
+let CATS = ["All"];
+let activeCat = "All";
+let invActiveCat = "All";
+
+let isOnline = navigator.onLine;
+
+// ═══════════════════════════════════════════
+//  ONLINE / OFFLINE STATUS
+// ═══════════════════════════════════════════
+function updateOnlineStatus(online) {
+  const wasOnline = isOnline;
+  isOnline = online;
+  const badge  = document.getElementById("sync-badge");
+  const label  = document.getElementById("sync-label");
+  badge.className = "sync-badge " + (online ? "online" : "offline");
+  label.textContent = online ? "Online" : "Offline";
+  if (online && !wasOnline) syncPendingChanges();
+}
+
+window.addEventListener("online",  () => checkConnection());
+window.addEventListener("offline", () => updateOnlineStatus(false));
+
+// navigator.onLine only reflects whether the network adapter is up — it does
+// NOT mean the internet is actually reachable (e.g. connected to a router
+// with no internet still reports navigator.onLine = true). So we always
+// actively verify by pinging Supabase, and trust that result instead —
+// this applies whether the page is served normally or opened as file://.
+let connectionCheckInFlight = false;
+
+async function pingSupabaseOnce(timeoutMs, mode) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/health`, {
+      method: "GET",
+      signal: controller.signal,
+      cache: "no-store",
+      mode: mode || "cors"
+    });
+    // In "no-cors" mode the response is opaque (status is always 0), so we
+    // can't read res.ok — but getting a response at all (no throw) means
+    // the request reached the server, which is good enough to call it online.
+    return mode === "no-cors" ? true : res.ok;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function probeConnectivity() {
+  // Attempt 1 + 2: normal CORS request, with one retry.
+  for (let i = 0; i < 2; i++) {
+    try {
+      const ok = await pingSupabaseOnce(4000, "cors");
+      if (ok) return true;
+    } catch (e) {
+      // fall through to retry / fallback
+    }
+  }
+  // Attempt 3: fallback using no-cors mode. This still requires an actual
+  // network round-trip to succeed, so it correctly fails when there's no
+  // internet — it just sidesteps CORS-specific quirks (relevant on file://
+  // pages) that could otherwise cause a false "offline" reading.
+  try {
+    return await pingSupabaseOnce(4000, "no-cors");
+  } catch (e) {
+    return false;
+  }
+}
+
+async function checkConnection() {
+  if (connectionCheckInFlight) return;
+  if (!navigator.onLine) { updateOnlineStatus(false); return; }
+
+  connectionCheckInFlight = true;
+  try {
+    const ok = await probeConnectivity();
+    updateOnlineStatus(ok);
+  } finally {
+    connectionCheckInFlight = false;
+  }
+}
+
+function startConnectionWatcher() {
+  checkConnection();
+  setInterval(checkConnection, 8000);
+}
+
+function setSyncing(count) {
+  const badge = document.getElementById("sync-badge");
+  const label = document.getElementById("sync-label");
+  if (count > 0) {
+    badge.className = "sync-badge syncing";
+    label.textContent = `Syncing ${count}…`;
+  } else if (isOnline) {
+    badge.className = "sync-badge online";
+    label.textContent = "Online";
+  } else {
+    badge.className = "sync-badge offline";
+    label.textContent = "Offline";
+  }
+}
+
+// ═══════════════════════════════════════════
+//  CLOCK
+// ═══════════════════════════════════════════
+function updateClock() {
+  const now = new Date();
+  document.getElementById("hdr-date").textContent = now.toLocaleDateString("en-PH",{weekday:"short",month:"short",day:"numeric",year:"numeric"});
+  document.getElementById("hdr-time").textContent = now.toLocaleTimeString("en-PH",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ═══════════════════════════════════════════
+//  LOAD DATA — local-first, then sync from remote
+// ═══════════════════════════════════════════
+async function loadFromLocal() {
+  const cats = await localDB.categories.orderBy("sort_order").toArray();
+  CATS = ["All", ...cats.map(c => c.name)];
+
+  const prods = await localDB.products.toArray();
+  products = prods.map(p => ({
+    id: p.remoteId || ("local_" + p.localId),
+    localId: p.localId,
+    name: p.name, cat: p.cat, emoji: p.emoji || "📦",
+    price: Number(p.price), stock: p.stock, barcode: p.barcode || "",
+    _dirty: p._dirty || false
+  }));
+
+  const txs = await localDB.transactions.toArray();
+  transactions = txs.map(t => ({
+    id: t.remoteId || ("local_" + t.localId),
+    localId: t.localId,
+    date: t.tx_date, items: t.items,
+    subtotal: Number(t.subtotal), discount: Number(t.discount),
+    total: Number(t.total), tendered: Number(t.tendered), change: Number(t.change),
+    _dirty: t._dirty || false
+  }));
+}
+
+async function syncFromRemote() {
+  if (!isOnline) return;
+  try {
+    const [{ data: catData }, { data: prodData }, { data: txData }] = await Promise.all([
+      sb.from("categories").select("*").order("sort_order"),
+      sb.from("products").select("*").order("id"),
+      sb.from("transactions").select("*").order("tx_date")
+    ]);
+
+    if (catData) {
+      await localDB.categories.clear();
+      for (const c of catData) {
+        await localDB.categories.add({ name: c.name, sort_order: c.sort_order, remoteId: c.id, _dirty: false });
+      }
+      CATS = ["All", ...catData.map(c => c.name)];
+    }
+
+    if (prodData) {
+      for (const p of prodData) {
+        await localUpsertProduct({
+          name: p.name, cat: p.cat, emoji: p.emoji || "📦",
+          price: Number(p.price), stock: p.stock, barcode: p.barcode || "",
+          remoteId: p.id, _dirty: false
+        });
+      }
+      const prods = await localDB.products.toArray();
+      products = prods.map(p => ({
+        id: p.remoteId || ("local_" + p.localId),
+        localId: p.localId,
+        name: p.name, cat: p.cat, emoji: p.emoji || "📦",
+        price: Number(p.price), stock: p.stock, barcode: p.barcode || "",
+        _dirty: p._dirty || false
+      }));
+    }
+
+    if (txData) {
+      for (const t of txData) {
+        await localUpsertTransaction({
+          tx_date: t.tx_date, items: t.items,
+          subtotal: Number(t.subtotal), discount: Number(t.discount),
+          total: Number(t.total), tendered: Number(t.tendered), change: Number(t.change),
+          remoteId: t.id, _dirty: false
+        });
+      }
+      const txs = await localDB.transactions.toArray();
+      transactions = txs.map(t => ({
+        id: t.remoteId || ("local_" + t.localId),
+        localId: t.localId,
+        date: t.tx_date, items: t.items,
+        subtotal: Number(t.subtotal), discount: Number(t.discount),
+        total: Number(t.total), tendered: Number(t.tendered), change: Number(t.change),
+        _dirty: t._dirty || false
+      }));
+    }
+  } catch (e) {
+    console.warn("Sync from remote failed:", e.message);
+  }
+}
+
+// ═══════════════════════════════════════════
+//  SYNC PENDING (push dirty records to Supabase)
+// ═══════════════════════════════════════════
+async function syncPendingChanges() {
+  if (!isOnline) return;
+
+  const dirtyTx  = await localDB.transactions.where("_dirty").equals(1).toArray();
+  const dirtyProd = await localDB.products.where("_dirty").equals(1).toArray();
+  const total = dirtyTx.length + dirtyProd.length;
+  if (!total) return;
+
+  setSyncing(total);
+
+  // ── sync transactions ──────────────────────
+  for (const t of dirtyTx) {
+    try {
+      if (t.remoteId) {
+        // already in Supabase but had a local edit (shouldn't normally happen for txs)
+        await sb.from("transactions").update({
+          items: t.items, subtotal: t.subtotal, discount: t.discount,
+          total: t.total, tendered: t.tendered, change: t.change
+        }).eq("id", t.remoteId);
+      } else {
+        const { data, error } = await sb.from("transactions").insert({
+          tx_date: t.tx_date, items: t.items,
+          subtotal: t.subtotal, discount: t.discount,
+          total: t.total, tendered: t.tendered, change: t.change
+        }).select().single();
+        if (!error && data) {
+          await localDB.transactions.update(t.localId, { remoteId: data.id, _dirty: false });
+          // update in-memory
+          const m = transactions.find(x => x.localId === t.localId);
+          if (m) { m.id = data.id; m._dirty = false; }
+        } else if (error) {
+          console.error("Tx sync error:", error.message);
+          continue;
+        }
+      }
+      await localDB.transactions.update(t.localId, { _dirty: false });
+    } catch (e) {
+      console.error("Tx sync exception:", e);
+    }
+  }
+
+  // ── sync product stock changes ─────────────
+  for (const p of dirtyProd) {
+    try {
+      if (p.remoteId) {
+        const { error } = await sb.from("products").update({
+          name: p.name, cat: p.cat, emoji: p.emoji, price: p.price,
+          stock: p.stock, barcode: p.barcode || null
+        }).eq("id", p.remoteId);
+        if (!error) {
+          await localDB.products.update(p.localId, { _dirty: false });
+          const m = products.find(x => x.localId === p.localId);
+          if (m) m._dirty = false;
+        }
+      } else {
+        // new product created offline
+        const { data, error } = await sb.from("products").insert({
+          name: p.name, cat: p.cat, emoji: p.emoji, price: p.price,
+          stock: p.stock, barcode: p.barcode || null
+        }).select().single();
+        if (!error && data) {
+          await localDB.products.update(p.localId, { remoteId: data.id, _dirty: false });
+          const m = products.find(x => x.localId === p.localId);
+          if (m) { m.id = data.id; m._dirty = false; }
+        }
+      }
+    } catch (e) {
+      console.error("Product sync exception:", e);
+    }
+  }
+
+  // sync new categories too
+  const dirtyCats = await localDB.categories.where("_dirty").equals(1).toArray();
+  for (const c of dirtyCats) {
+    try {
+      if (!c.remoteId) {
+        const { data, error } = await sb.from("categories").insert({
+          name: c.name, sort_order: c.sort_order
+        }).select().single();
+        if (!error && data) {
+          await localDB.categories.update(c.localId, { remoteId: data.id, _dirty: false });
+        }
+      } else {
+        await localDB.categories.update(c.localId, { _dirty: false });
+      }
+    } catch (e) {
+      console.error("Category sync exception:", e);
+    }
+  }
+
+  setSyncing(0);
+}
+
+// ═══════════════════════════════════════════
+//  VIEW SWITCHING
+// ═══════════════════════════════════════════
+function switchView(v) {
+  document.querySelectorAll(".view").forEach(el=>el.classList.remove("active"));
+  document.querySelectorAll(".nav-tab").forEach(el=>el.classList.remove("active"));
+  document.getElementById("view-"+v).classList.add("active");
+  event.currentTarget.classList.add("active");
+  if (v === "analytics") updateAnalytics();
+  if (v === "inventory") renderInventory();
+}
+
+// ═══════════════════════════════════════════
+//  CATEGORY FILTER
+// ═══════════════════════════════════════════
+function renderCatFilter() {
+  const el = document.getElementById("cat-filter");
+  el.innerHTML = CATS.map(c =>
+    `<div class="cat-btn${activeCat===c?" active":""}" onclick="setCat('${c}')">${c}</div>`
+  ).join("");
+}
+
+function setCat(c) {
+  activeCat = c;
+  renderCatFilter();
+  renderProducts();
+}
+
+// ═══════════════════════════════════════════
+//  PRODUCTS
+// ═══════════════════════════════════════════
+function renderProducts() {
+  const q = document.getElementById("search-input").value.toLowerCase();
+  const grid = document.getElementById("product-grid");
+  const filtered = products.filter(p => {
+    const matchCat = activeCat === "All" || p.cat === activeCat;
+    const matchQ = !q || p.name.toLowerCase().includes(q) || p.cat.toLowerCase().includes(q);
+    return matchCat && matchQ;
+  });
+
+  if (!filtered.length) {
+    grid.innerHTML = `<div class="no-results">😕 No products found</div>`;
+    return;
+  }
+
+  grid.innerHTML = filtered.map(p => {
+    const low = p.stock > 0 && p.stock <= 5;
+    const out = p.stock === 0;
+    return `
+      <div class="prod-card${out?" out-of-stock":""}" onclick="addToCart('${p.id}')">
+        ${low ? '<div class="low-stock-badge">Low</div>' : ""}
+        <span class="prod-emoji">${p.emoji||"📦"}</span>
+        <div class="prod-name">${p.name}</div>
+        <div class="prod-price">₱${p.price.toFixed(2)}</div>
+        <div class="prod-stock">${out?"Out of stock":p.stock+" pcs"}</div>
+      </div>`;
+  }).join("");
+}
+
+// ═══════════════════════════════════════════
+//  CART
+// ═══════════════════════════════════════════
+function addToCart(id) {
+  const p = products.find(x=>x.id==id);
+  if (!p || p.stock === 0) return;
+  const item = cart.find(x=>x.id==id);
+  if (item) {
+    if (item.qty >= p.stock) return;
+    item.qty++;
+  } else {
+    cart.push({ id, name: p.name, price: p.price, qty: 1 });
+  }
+  renderCart();
+}
+
+function changeQty(id, delta) {
+  const item = cart.find(x=>x.id==id);
+  if (!item) return;
+  const p = products.find(x=>x.id==id);
+  item.qty = Math.min(p.stock, Math.max(0, item.qty + delta));
+  if (item.qty === 0) cart = cart.filter(x=>x.id!=id);
+  renderCart();
+}
+
+function removeFromCart(id) {
+  cart = cart.filter(x=>x.id!=id);
+  renderCart();
+}
+
+function clearCart() {
+  cart = [];
+  document.getElementById("discount-input").value = 0;
+  document.getElementById("tendered-input").value = "";
+  renderCart();
+}
+
+function renderCart() {
+  const el = document.getElementById("cart-items");
+  if (!cart.length) {
+    el.innerHTML = `<div class="cart-empty" id="cart-empty"><span>🛍️</span>Add items to get started</div>`;
+    updateTotals(); return;
+  }
+  el.innerHTML = cart.map(item => `
+    <div class="cart-item">
+      <div class="ci-name">${item.name}</div>
+      <div class="ci-controls">
+        <button class="ci-btn" onclick="changeQty('${item.id}',-1)">−</button>
+        <div class="ci-qty">${item.qty}</div>
+        <button class="ci-btn" onclick="changeQty('${item.id}',1)">+</button>
+      </div>
+      <div class="ci-total">₱${(item.price*item.qty).toFixed(2)}</div>
+      <div class="ci-remove" onclick="removeFromCart('${item.id}')">✕</div>
+    </div>
+  `).join("");
+  updateTotals();
+}
+
+function updateTotals() {
+  const subtotal = cart.reduce((s,i)=>s+i.price*i.qty, 0);
+  const disc = parseFloat(document.getElementById("discount-input").value)||0;
+  const total = Math.max(0, subtotal - disc);
+  document.getElementById("subtotal").textContent = "₱"+subtotal.toFixed(2);
+  document.getElementById("total-display").textContent = "₱"+total.toFixed(2);
+  renderQuickAmounts(total);
+  updateChange();
+  updateMobileCartBar(total);
+}
+
+// ═══════════════════════════════════════════
+//  MOBILE CART DRAWER
+// ═══════════════════════════════════════════
+function toggleCartDrawer(force) {
+  const panel = document.getElementById("cart-panel");
+  const backdrop = document.getElementById("cart-backdrop");
+  const isOpen = panel.classList.contains("open");
+  const next = typeof force === "boolean" ? force : !isOpen;
+  panel.classList.toggle("open", next);
+  backdrop.classList.toggle("show", next);
+}
+
+function updateMobileCartBar(total) {
+  const bar = document.getElementById("mobile-cart-bar");
+  const count = cart.reduce((s,i)=>s+i.qty, 0);
+  if (!count) { bar.classList.remove("show"); return; }
+  if (typeof total !== "number") {
+    const subtotal = cart.reduce((s,i)=>s+i.price*i.qty, 0);
+    const disc = parseFloat(document.getElementById("discount-input").value)||0;
+    total = Math.max(0, subtotal - disc);
+  }
+  document.getElementById("mobile-cart-count").textContent = count;
+  document.getElementById("mobile-cart-total").textContent = "₱"+total.toFixed(2);
+  bar.classList.add("show");
+}
+
+function renderQuickAmounts(total) {
+  const rounds = [20,50,100,200,500,1000].filter(v=>v>=total);
+  const show = rounds.slice(0,4);
+  if (!show.includes(Math.ceil(total/10)*10) && total > 0) show.unshift(Math.ceil(total/10)*10);
+  document.getElementById("quick-amounts").innerHTML = show.slice(0,5).map(v=>
+    `<button class="qa-btn" onclick="setTendered(${v})">₱${v}</button>`
+  ).join("");
+}
+
+function setTendered(v) {
+  document.getElementById("tendered-input").value = v;
+  updateChange();
+}
+
+function updateChange() {
+  const disc = parseFloat(document.getElementById("discount-input").value)||0;
+  const subtotal = cart.reduce((s,i)=>s+i.price*i.qty, 0);
+  const total = Math.max(0, subtotal - disc);
+  const tendered = parseFloat(document.getElementById("tendered-input").value)||0;
+  const change = tendered - total;
+  const cdEl = document.getElementById("change-display");
+  const cvEl = document.getElementById("change-val");
+  const btn = document.getElementById("checkout-btn");
+
+  if (!cart.length) { btn.disabled=true; cvEl.textContent="—"; cdEl.classList.remove("negative"); return; }
+
+  if (tendered >= total && total > 0) {
+    cvEl.textContent = "₱"+change.toFixed(2);
+    cdEl.classList.remove("negative");
+    btn.disabled = false;
+  } else {
+    cvEl.textContent = tendered > 0 ? "-₱"+(total-tendered).toFixed(2) : "—";
+    cdEl.classList.toggle("negative", tendered > 0);
+    btn.disabled = true;
+  }
+}
+
+// ═══════════════════════════════════════════
+//  CHECKOUT — offline-first
+// ═══════════════════════════════════════════
+function checkout() {
+  const disc = parseFloat(document.getElementById("discount-input").value)||0;
+  const subtotal = cart.reduce((s,i)=>s+i.price*i.qty, 0);
+  const total = Math.max(0, subtotal - disc);
+  const tendered = parseFloat(document.getElementById("tendered-input").value)||0;
+  const change = tendered - total;
+
+  const rows = cart.map(i=>`
+    <div class="receipt-row"><span>${i.name} x${i.qty}</span><span>₱${(i.price*i.qty).toFixed(2)}</span></div>
+  `).join("");
+
+  document.getElementById("confirm-content").innerHTML = `
+    ${rows}
+    <hr class="receipt-divider">
+    <div class="receipt-row"><span>Subtotal</span><span>₱${subtotal.toFixed(2)}</span></div>
+    ${disc>0?`<div class="receipt-row"><span>Discount</span><span>-₱${disc.toFixed(2)}</span></div>`:""}
+    <div class="receipt-row receipt-total"><span>TOTAL</span><span>₱${total.toFixed(2)}</span></div>
+    <div class="receipt-row"><span>Cash</span><span>₱${tendered.toFixed(2)}</span></div>
+    <div class="receipt-row"><span>Change</span><span>₱${change.toFixed(2)}</span></div>
+  `;
+
+  document.getElementById("confirm-modal").classList.add("open");
+}
+
+async function confirmCheckout() {
+  const disc = parseFloat(document.getElementById("discount-input").value)||0;
+  const subtotal = cart.reduce((s,i)=>s+i.price*i.qty, 0);
+  const total = Math.max(0, subtotal - disc);
+  const tendered = parseFloat(document.getElementById("tendered-input").value)||0;
+  const change = tendered - total;
+  const cartSnapshot = [...cart];
+  const now = new Date().toISOString();
+
+  const confirmBtn = document.querySelector("#confirm-modal .btn-primary");
+  if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = "Saving…"; }
+
+  // ── 1. Save transaction locally first (always works offline) ──
+  const txRecord = {
+    tx_date: now, items: cartSnapshot,
+    subtotal, discount: disc, total, tendered, change,
+    _dirty: 1   // 1 = needs sync; Dexie indexed value
+  };
+  const localTxId = await localDB.transactions.add(txRecord);
+
+  // ── 2. Deduct stock locally ──────────────────────────────────
+  for (const item of cartSnapshot) {
+    const p = products.find(x=>x.id==item.id);
+    if (!p) continue;
+    p.stock = Math.max(0, p.stock - item.qty);
+    // find local record by localId or remoteId
+    const localProd = await localDB.products.where("remoteId").equals(
+      String(p.id).startsWith("local_") ? undefined : p.id
+    ).first() || await localDB.products.get(p.localId);
+    if (localProd) {
+      await localDB.products.update(localProd.localId, { stock: p.stock, _dirty: 1 });
+    }
+  }
+
+  // ── 3. Update in-memory transactions array ───────────────────
+  const tx = {
+    id: "local_" + localTxId,
+    localId: localTxId,
+    date: now, items: cartSnapshot,
+    subtotal, discount: disc, total, tendered, change,
+    _dirty: true
+  };
+  transactions.push(tx);
+
+  if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = "✔ Confirm"; }
+  closeModal("confirm-modal");
+  showReceipt(tx);
+  clearCart();
+  toggleCartDrawer(false);
+  renderProducts();
+  renderInventory();
+
+  // ── 4. Try to push to Supabase immediately if online ─────────
+  if (isOnline) {
+    syncPendingChanges();
+  }
+}
+
+function showReceipt(tx) {
+  const dt = new Date(tx.date);
+  const dtStr = dt.toLocaleDateString("en-PH",{month:"short",day:"numeric",year:"numeric"}) + " " + dt.toLocaleTimeString("en-PH",{hour:"2-digit",minute:"2-digit"});
+  const displayId = typeof tx.id === "string" && tx.id.startsWith("local_")
+    ? String(tx.localId).padStart(4,"0")
+    : String(tx.id).padStart(4,"0");
+  const rows = tx.items.map(i=>`
+    <div class="receipt-row"><span>${i.name} x${i.qty}</span><span>₱${(i.price*i.qty).toFixed(2)}</span></div>
+  `).join("");
+  document.getElementById("receipt-content").innerHTML = `
+    <div class="receipt-store">
+      <h4>🏪 ${STORE_NAME}</h4>
+      <div style="font-size:.75rem;color:var(--muted)">Receipt #${displayId}</div>
+      <div style="font-size:.75rem;color:var(--muted)">${dtStr}</div>
+    </div>
+    <hr class="receipt-divider">
+    ${rows}
+    <hr class="receipt-divider">
+    <div class="receipt-row"><span>Subtotal</span><span>₱${tx.subtotal.toFixed(2)}</span></div>
+    ${tx.discount>0?`<div class="receipt-row"><span>Discount</span><span>-₱${tx.discount.toFixed(2)}</span></div>`:""}
+    <div class="receipt-row receipt-total"><span>TOTAL</span><span>₱${tx.total.toFixed(2)}</span></div>
+    <div class="receipt-row"><span>Cash</span><span>₱${tx.tendered.toFixed(2)}</span></div>
+    <div class="receipt-row"><span>Change</span><span>₱${tx.change.toFixed(2)}</span></div>
+    <hr class="receipt-divider">
+    <div style="text-align:center;color:var(--muted);font-size:.73rem;margin-top:6px">Thank you, come again! 🙏</div>
+  `;
+  document.getElementById("receipt-modal").classList.add("open");
+}
+
+function printReceipt() { window.print(); }
+
+// ═══════════════════════════════════════════
+//  ANALYTICS
+// ═══════════════════════════════════════════
+function filterTx(range) {
+  const now = new Date();
+  return transactions.filter(tx => {
+    const d = new Date(tx.date);
+    if (range === "today") return d.toDateString() === now.toDateString();
+    if (range === "week") {
+      const start = new Date(now); start.setDate(now.getDate()-6); start.setHours(0,0,0,0);
+      return d >= start;
+    }
+    if (range === "month") return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
+    return true;
+  });
+}
+
+function updateAnalytics() {
+  const range = document.getElementById("range-select").value;
+  const txs = filterTx(range);
+
+  const totalRev = txs.reduce((s,t)=>s+t.total,0);
+  const totalDisc = txs.reduce((s,t)=>s+t.discount,0);
+  const txCount = txs.length;
+  const avgTx = txCount ? totalRev/txCount : 0;
+  const totalItems = txs.reduce((s,t)=>s+t.items.reduce((ss,i)=>ss+i.qty,0),0);
+
+  document.getElementById("kpi-row").innerHTML = `
+    <div class="kpi-card green">
+      <div class="kpi-label">Revenue</div>
+      <div class="kpi-value">₱${totalRev.toLocaleString("en-PH",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+      <div class="kpi-sub">after discounts</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Transactions</div>
+      <div class="kpi-value">${txCount}</div>
+      <div class="kpi-sub">total orders</div>
+    </div>
+    <div class="kpi-card blue">
+      <div class="kpi-label">Avg. per Sale</div>
+      <div class="kpi-value">₱${avgTx.toFixed(2)}</div>
+      <div class="kpi-sub">average basket</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Items Sold</div>
+      <div class="kpi-value">${totalItems}</div>
+      <div class="kpi-sub">total units</div>
+    </div>
+    <div class="kpi-card red">
+      <div class="kpi-label">Discounts Given</div>
+      <div class="kpi-value">₱${totalDisc.toFixed(2)}</div>
+      <div class="kpi-sub">total deductions</div>
+    </div>
+  `;
+
+  renderBarChart(txs, range);
+  renderCategoryChart(txs);
+  renderTopItems(txs);
+  renderTxTable(txs);
+}
+
+function renderBarChart(txs, range) {
+  const el = document.getElementById("daily-chart");
+  const now = new Date();
+  let days = [];
+
+  if (range === "today") {
+    for (let h = 0; h < 24; h++) {
+      const rev = txs.filter(t=>new Date(t.date).getHours()===h).reduce((s,t)=>s+t.total,0);
+      days.push({ lbl: h+"h", rev });
+    }
+    let last = days.length-1;
+    while (last > 0 && days[last].rev===0) last--;
+    days = days.slice(0, last+1);
+  } else {
+    const count = range==="month" ? 30 : range==="all" ? 14 : 7;
+    for (let i = count-1; i >= 0; i--) {
+      const d = new Date(now); d.setDate(now.getDate()-i); d.setHours(0,0,0,0);
+      const d2 = new Date(d); d2.setDate(d.getDate()+1);
+      const rev = txs.filter(t=>{ const td=new Date(t.date); return td>=d && td<d2; }).reduce((s,t)=>s+t.total,0);
+      days.push({ lbl: (d.getMonth()+1)+"/"+(d.getDate()), rev });
+    }
+  }
+
+  const maxRev = Math.max(...days.map(d=>d.rev), 1);
+  el.innerHTML = days.map(d => `
+    <div class="bar-col">
+      <div class="bar" style="height:${Math.max(4,(d.rev/maxRev)*120)}px" data-val="₱${d.rev.toFixed(0)}"></div>
+      <div class="bar-lbl">${d.lbl}</div>
+    </div>
+  `).join("");
+  // scroll to end (most recent bars) on mobile
+  const wrap = el.closest(".bar-chart-wrap");
+  if (wrap) wrap.scrollLeft = wrap.scrollWidth;
+}
+
+function renderCategoryChart(txs) {
+  const el = document.getElementById("category-chart");
+  const catTotals = {};
+  txs.forEach(t => t.items.forEach(i => {
+    const p = products.find(x=>x.id==i.id);
+    const cat = p ? p.cat : "Others";
+    catTotals[cat] = (catTotals[cat]||0) + i.price*i.qty;
+  }));
+
+  const sorted = Object.entries(catTotals).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const grandTotal = sorted.reduce((s,e)=>s+e[1],0)||1;
+
+  const COLORS = ["#D72E2A","#F4B731","#1565C0","#2E7D32","#7B1FA2"];
+  const SIZE = 110, R = 40, CX = SIZE/2, CY = SIZE/2;
+  let angle = -90;
+  let paths = "";
+  sorted.forEach(([cat,val],i) => {
+    const pct = val/grandTotal;
+    const sweep = pct*360;
+    const a1 = angle*(Math.PI/180);
+    const a2 = (angle+sweep)*(Math.PI/180);
+    const x1 = CX+R*Math.cos(a1), y1 = CY+R*Math.sin(a1);
+    const x2 = CX+R*Math.cos(a2), y2 = CY+R*Math.sin(a2);
+    const large = sweep>180?1:0;
+    paths += `<path d="M${CX},${CY} L${x1},${y1} A${R},${R} 0 ${large},1 ${x2},${y2} Z" fill="${COLORS[i]}" opacity=".9"/>`;
+    angle += sweep;
+  });
+
+  const legend = sorted.map(([cat,val],i)=>`
+    <div class="legend-item">
+      <div class="legend-dot" style="background:${COLORS[i]}"></div>
+      <span>${cat}</span>
+      <span class="legend-pct">${((val/grandTotal)*100).toFixed(1)}%</span>
+    </div>
+  `).join("");
+
+  el.innerHTML = sorted.length
+    ? `<svg class="donut-svg" width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}">${paths}<circle cx="${CX}" cy="${CY}" r="22" fill="white"/></svg><div class="donut-legend">${legend}</div>`
+    : `<div style="color:var(--muted);font-size:.85rem">No sales yet</div>`;
+}
+
+function renderTopItems(txs) {
+  const limit = parseInt(document.getElementById("top-items-limit").value) || 10;
+  const tbody = document.getElementById("top-items-tbody");
+
+  const itemTotals = {};
+  txs.forEach(t => t.items.forEach(i => {
+    if (!itemTotals[i.id]) itemTotals[i.id] = { id: i.id, name: i.name, qty: 0, revenue: 0 };
+    itemTotals[i.id].qty += i.qty;
+    itemTotals[i.id].revenue += i.price * i.qty;
+  }));
+
+  const sorted = Object.values(itemTotals).sort((a, b) => b.qty - a.qty).slice(0, limit);
+
+  if (!sorted.length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">No sales yet</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = sorted.map((item, idx) => {
+    const p = products.find(x => x.id == item.id);
+    const emoji = p ? (p.emoji || "📦") : "📦";
+    const cat = p ? p.cat : "—";
+    return `<tr>
+      <td>${idx + 1}</td>
+      <td><span style="margin-right:6px">${emoji}</span>${item.name}</td>
+      <td>${cat}</td>
+      <td><strong>${item.qty}</strong></td>
+      <td class="tx-total">₱${item.revenue.toFixed(2)}</td>
+    </tr>`;
+  }).join("");
+}
+
+function renderTxTable(txs) {
+  const tbody = document.getElementById("tx-tbody");
+  const recent = [...txs].reverse().slice(0, 30);
+  if (!recent.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">No transactions yet</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = recent.map(t => {
+    const dt = new Date(t.date);
+    const dtStr = dt.toLocaleDateString("en-PH",{month:"short",day:"numeric"}) + " " + dt.toLocaleTimeString("en-PH",{hour:"2-digit",minute:"2-digit"});
+    const itemSummary = t.items.map(i=>i.name.split(" ")[0]).join(", ");
+    const idStr = typeof t.id === "string" && t.id.startsWith("local_")
+      ? `<span style="color:var(--yellow-dk);font-size:.7rem">⚡offline</span>`
+      : "#"+String(t.id).padStart(4,"0");
+    return `<tr>
+      <td>${idStr}</td>
+      <td>${dtStr}</td>
+      <td style="color:var(--muted);font-size:.78rem">${itemSummary}</td>
+      <td>${t.discount>0?"₱"+t.discount.toFixed(2):"—"}</td>
+      <td class="tx-total">₱${t.total.toFixed(2)}</td>
+      <td>₱${t.tendered.toFixed(2)}</td>
+      <td>₱${t.change.toFixed(2)}</td>
+    </tr>`;
+  }).join("");
+}
+
+// ═══════════════════════════════════════════
+//  CSV EXPORT — Custom Date Range
+// ═══════════════════════════════════════════
+function exportCSV(mode) {
+  let rangeTx = transactions;
+  let rangeLabel = "All_Time";
+  let startStr = "", endStr = "";
+
+  if (mode === "custom") {
+    startStr = document.getElementById("csv-start").value;
+    endStr   = document.getElementById("csv-end").value;
+    if (!startStr || !endStr) {
+      alert("Please select both a start and end date.");
+      return;
+    }
+    const start = new Date(startStr + "T00:00:00");
+    const end   = new Date(endStr + "T23:59:59.999");
+    if (start > end) {
+      alert("Start date must be before end date.");
+      return;
+    }
+    rangeTx = transactions.filter(t => {
+      const d = new Date(t.date);
+      return d >= start && d <= end;
+    });
+    rangeLabel = `${startStr}_to_${endStr}`;
+  }
+
+  if (!rangeTx.length) {
+    alert("No transactions found in the selected range.");
+    return;
+  }
+
+  // ── 1. Group transactions into daily buckets ───────────────────
+  const buckets = {};
+  rangeTx.forEach(tx => {
+    const d = new Date(tx.date);
+    const key = d.toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+    if (!buckets[key]) buckets[key] = [];
+    buckets[key].push(tx);
+  });
+
+  // ── 2. Build rows ───────────────────────────────────────────────
+  const escCSV = v => {
+    const s = String(v ?? "");
+    return s.includes(",") || s.includes('"') || s.includes("\n")
+      ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+
+  const summaryRows  = [["Date","Transactions","Gross Sales","Discounts","Net Revenue","Items Sold","Avg. per Sale"]];
+  const itemRows     = [["Date","Product","Category","Units Sold","Revenue"]];
+  const txRows       = [["Date","Tx ID","Time","Items","Subtotal","Discount","Total","Cash","Change"]];
+
+  const sortedKeys = Object.keys(buckets).sort((a, b) => {
+    const dateA = new Date(buckets[a][0].date);
+    const dateB = new Date(buckets[b][0].date);
+    return dateA - dateB;
+  });
+
+  sortedKeys.forEach(period => {
+    const txs = buckets[period];
+
+    // — Summary sheet row —
+    const gross   = txs.reduce((s, t) => s + t.subtotal, 0);
+    const disc    = txs.reduce((s, t) => s + t.discount, 0);
+    const net     = txs.reduce((s, t) => s + t.total, 0);
+    const items   = txs.reduce((s, t) => s + t.items.reduce((ss, i) => ss + i.qty, 0), 0);
+    const avg     = txs.length ? net / txs.length : 0;
+    summaryRows.push([period, txs.length, gross.toFixed(2), disc.toFixed(2), net.toFixed(2), items, avg.toFixed(2)]);
+
+    // — Item breakdown rows —
+    const itemTotals = {};
+    txs.forEach(t => t.items.forEach(i => {
+      if (!itemTotals[i.id]) {
+        const p = products.find(x => x.id == i.id);
+        itemTotals[i.id] = { name: i.name, cat: p ? p.cat : "—", qty: 0, revenue: 0 };
+      }
+      itemTotals[i.id].qty     += i.qty;
+      itemTotals[i.id].revenue += i.price * i.qty;
+    }));
+    Object.values(itemTotals)
+      .sort((a, b) => b.qty - a.qty)
+      .forEach(it => itemRows.push([period, it.name, it.cat, it.qty, it.revenue.toFixed(2)]));
+
+    // — Transaction detail rows —
+    txs.forEach(t => {
+      const dt   = new Date(t.date);
+      const time = dt.toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit" });
+      const id   = typeof t.id === "string" && t.id.startsWith("local_")
+        ? String(t.localId).padStart(4, "0") : String(t.id).padStart(4, "0");
+      const itemSummary = t.items.map(i => `${i.name} x${i.qty}`).join("; ");
+      txRows.push([period, id, time, itemSummary,
+        t.subtotal.toFixed(2), t.discount.toFixed(2), t.total.toFixed(2),
+        t.tendered.toFixed(2), t.change.toFixed(2)]);
+    });
+  });
+
+  // ── 3. Combine into one CSV with section headers ───────────────
+  const toCSV = rows => rows.map(r => r.map(escCSV).join(",")).join("\r\n");
+  const rangeText = mode === "custom" ? `${startStr} to ${endStr}` : "All Time";
+  const now   = new Date().toISOString().slice(0, 10);
+
+  const csvContent =
+    `"${STORE_NAME} - Sales Report (${rangeText})"\r\n` +
+    `"Generated: ${new Date().toLocaleString("en-PH")}"\r\n\r\n` +
+    `"=== SUMMARY ==="\r\n` + toCSV(summaryRows) + "\r\n\r\n" +
+    `"=== ITEM BREAKDOWN ==="\r\n` + toCSV(itemRows) + "\r\n\r\n" +
+    `"=== TRANSACTION DETAIL ==="\r\n` + toCSV(txRows);
+
+  // ── 4. Trigger download ────────────────────────────────────────
+  const blob = new Blob(["\uFEFF" + csvContent, ""], { type: "text/csv;charset=utf-8;" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = `${STORE_NAME.replace(/\s+/g,"_")}_${rangeLabel}_${now}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ═══════════════════════════════════════════
+//  INVENTORY
+// ═══════════════════════════════════════════
+function renderInvCatFilter() {
+  const el = document.getElementById("inv-cat-filter");
+  el.innerHTML = CATS.map(c =>
+    `<div class="cat-btn${invActiveCat===c?" active":""}" onclick="setInvCat('${c}')">${c}</div>`
+  ).join("");
+}
+
+function setInvCat(c) {
+  invActiveCat = c;
+  renderInvCatFilter();
+  renderInventory();
+}
+
+function renderInventory() {
+  const tbody = document.getElementById("inv-tbody");
+  const hideOOS = document.getElementById("inv-hide-oos").checked;
+
+  const filtered = products.filter(p => {
+    const matchCat = invActiveCat === "All" || p.cat === invActiveCat;
+    const matchStock = !hideOOS || p.stock > 0;
+    return matchCat && matchStock;
+  });
+
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr class="inv-empty-row"><td colspan="6">😕 No products match this filter</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(p => {
+    const status = p.stock===0 ? "out" : p.stock<=5 ? "low" : "ok";
+    const labels = { ok:"In Stock", low:"Low Stock", out:"Out of Stock" };
+    return `<tr>
+      <td><span style="margin-right:6px">${p.emoji||"📦"}</span>${p.name}${p._dirty?' <span style="font-size:.65rem;color:var(--yellow-dk)">⚡</span>':""}</td>
+      <td>${p.cat}</td>
+      <td>₱${p.price.toFixed(2)}</td>
+      <td>${p.stock}</td>
+      <td><span class="stock-pill stock-${status}">${labels[status]}</span></td>
+      <td>
+        <button class="edit-btn" onclick="openEditProduct('${p.id}')">Edit</button>
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+// ═══════════════════════════════════════════
+//  CATEGORY MANAGEMENT — offline-first
+// ═══════════════════════════════════════════
+function populateCatOptions() {
+  const sel = document.getElementById("pm-cat");
+  sel.innerHTML = CATS.filter(c => c !== "All")
+    .map(c => `<option value="${c}">${c}</option>`).join("");
+}
+
+function openAddCategory() {
+  document.getElementById("cm-name").value = "";
+  document.getElementById("category-modal").classList.add("open");
+  setTimeout(() => document.getElementById("cm-name").focus(), 50);
+}
+
+async function saveCategory() {
+  const name = document.getElementById("cm-name").value.trim();
+  if (!name) { alert("Please enter a category name."); return; }
+  const exists = CATS.some(c => c.toLowerCase() === name.toLowerCase());
+  if (exists) { alert("That category already exists."); return; }
+
+  const saveBtn = document.querySelector("#category-modal .btn-primary");
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Saving…"; }
+
+  const sortOrder = Math.max(1, CATS.length - 1);
+
+  // Save locally first
+  await localDB.categories.add({ name, sort_order: sortOrder, _dirty: 1 });
+
+  const othersIdx = CATS.indexOf("Others");
+  if (othersIdx !== -1) CATS.splice(othersIdx, 0, name);
+  else CATS.push(name);
+
+  if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "Save"; }
+
+  populateCatOptions();
+  renderCatFilter();
+  renderInvCatFilter();
+  closeModal("category-modal");
+
+  if (isOnline) syncPendingChanges();
+}
+
+// ═══════════════════════════════════════════
+//  PRODUCT MODAL — offline-first
+// ═══════════════════════════════════════════
+function openAddProduct() {
+  editingProductId = null;
+  document.getElementById("prod-modal-title").textContent = "Add Product";
+  document.getElementById("pm-name").value = "";
+  populateCatOptions();
+  document.getElementById("pm-cat").value = CATS[1] || "";
+  document.getElementById("pm-emoji").value = "";
+  document.getElementById("pm-barcode").value = "";
+  document.getElementById("pm-price").value = "";
+  document.getElementById("pm-stock").value = "";
+  document.getElementById("product-modal").classList.add("open");
+}
+
+function openEditProduct(id) {
+  const p = products.find(x=>x.id==id);
+  if (!p) return;
+  editingProductId = id;
+  document.getElementById("prod-modal-title").textContent = "Edit Product";
+  document.getElementById("pm-name").value = p.name;
+  populateCatOptions();
+  document.getElementById("pm-cat").value = p.cat;
+  document.getElementById("pm-emoji").value = p.emoji||"";
+  document.getElementById("pm-barcode").value = p.barcode||"";
+  document.getElementById("pm-price").value = p.price;
+  document.getElementById("pm-stock").value = p.stock;
+  document.getElementById("product-modal").classList.add("open");
+}
+
+async function saveProduct() {
+  const name = document.getElementById("pm-name").value.trim();
+  const cat = document.getElementById("pm-cat").value;
+  const emoji = document.getElementById("pm-emoji").value.trim() || "📦";
+  const barcode = document.getElementById("pm-barcode").value.trim();
+  const price = parseFloat(document.getElementById("pm-price").value)||0;
+  const stock = parseInt(document.getElementById("pm-stock").value)||0;
+  if (!name || price <= 0) { alert("Please fill in name and price."); return; }
+
+  if (barcode) {
+    const dup = products.find(p => p.barcode === barcode && p.id != editingProductId);
+    if (dup) { alert(`That barcode is already used by "${dup.name}".`); return; }
+  }
+
+  const saveBtn = document.querySelector("#product-modal .btn-primary");
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Saving…"; }
+
+  const row = { name, cat, emoji, price, stock, barcode: barcode || "", _dirty: 1 };
+
+  if (editingProductId) {
+    const p = products.find(x=>x.id==editingProductId);
+    if (p) {
+      Object.assign(p, { name, cat, emoji, price, stock, barcode: barcode||"", _dirty: true });
+      if (p.localId) {
+        await localDB.products.update(p.localId, row);
+      }
+    }
+  } else {
+    const localId = await localDB.products.add(row);
+    products.push({ id: "local_"+localId, localId, ...row, _dirty: true });
+  }
+
+  if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "Save"; }
+  closeModal("product-modal");
+  renderProducts();
+  renderInventory();
+
+  if (isOnline) syncPendingChanges();
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove("open");
+}
+
+// ═══════════════════════════════════════════
+//  BARCODE SCANNER
+// ═══════════════════════════════════════════
+let scannerStream = null;
+let scannerLoopId = null;
+let scannerForProductModal = false;
+
+async function openScanner(forProductModal) {
+  scannerForProductModal = !!forProductModal;
+  const statusEl = document.getElementById("scanner-status");
+  statusEl.textContent = "Point camera at barcode…";
+  document.getElementById("scanner-modal").classList.add("open");
+
+  if (!("BarcodeDetector" in window)) {
+    statusEl.innerHTML = "⚠️ Your browser doesn't support live barcode scanning.<br>Try Chrome on Android, or type the barcode manually.";
+    return;
+  }
+
+  try {
+    scannerStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment" }
+    });
+    const video = document.getElementById("scanner-video");
+    video.srcObject = scannerStream;
+    await video.play();
+
+    const detector = new BarcodeDetector({
+      formats: ["ean_13","ean_8","upc_a","upc_e","code_128","code_39","qr_code"]
+    });
+
+    const scanLoop = async () => {
+      if (!scannerStream) return;
+      try {
+        const codes = await detector.detect(video);
+        if (codes.length) { handleScannedCode(codes[0].rawValue); return; }
+      } catch (e) { /* ignore frame errors */ }
+      scannerLoopId = requestAnimationFrame(scanLoop);
+    };
+    scanLoop();
+  } catch (err) {
+    statusEl.textContent = "⚠️ Could not access camera: " + err.message;
+  }
+}
+
+function handleScannedCode(code) {
+  closeScanner();
+  if (scannerForProductModal) {
+    const dup = products.find(p => p.barcode === code && p.id != editingProductId);
+    document.getElementById("pm-barcode").value = code;
+    if (dup) alert(`Heads up: this barcode is already used by "${dup.name}".`);
+    return;
+  }
+  const p = products.find(x => x.barcode && x.barcode === code);
+  if (p) {
+    if (p.stock <= 0) {
+      alert(`"${p.name}" is out of stock.`);
+    } else {
+      addToCart(p.id);
+    }
+  } else {
+    alert(`No product found with barcode: ${code}\nYou can assign this barcode to a product via Inventory → Edit.`);
+  }
+}
+
+function closeScanner() {
+  document.getElementById("scanner-modal").classList.remove("open");
+  if (scannerLoopId) { cancelAnimationFrame(scannerLoopId); scannerLoopId = null; }
+  if (scannerStream) { scannerStream.getTracks().forEach(t => t.stop()); scannerStream = null; }
+  const video = document.getElementById("scanner-video");
+  if (video) video.srcObject = null;
+}
+
+// ═══════════════════════════════════════════
+//  INIT — local-first, then sync
+// ═══════════════════════════════════════════
+async function init() {
+  document.getElementById("product-grid").innerHTML =
+    `<div class="no-results">⏳ Loading store data…</div>`;
+
+  // Step 1: load from IndexedDB immediately (works offline)
+  await loadFromLocal();
+  renderCatFilter();
+  renderInvCatFilter();
+  populateCatOptions();
+  renderProducts();
+  renderInventory();
+
+  // Step 2: if online, pull fresh data from Supabase in background
+  if (isOnline) {
+    try {
+      await syncFromRemote();
+      renderCatFilter();
+      renderInvCatFilter();
+      populateCatOptions();
+      renderProducts();
+      renderInventory();
+    } catch (err) {
+      console.warn("Remote sync failed, using local data:", err.message);
+    }
+    // Step 3: push any dirty records that were created offline
+    await syncPendingChanges();
+  }
+
+  updateOnlineStatus(navigator.onLine);
+
+  // default the CSV range pickers to the last 7 days
+  const endInput   = document.getElementById("csv-end");
+  const startInput = document.getElementById("csv-start");
+  if (endInput && startInput) {
+    const today = new Date();
+    const weekAgo = new Date(today); weekAgo.setDate(today.getDate() - 6);
+    const fmt = d => d.toISOString().slice(0, 10);
+    endInput.value   = fmt(today);
+    startInput.value = fmt(weekAgo);
+  }
+
+  // start real connectivity checks (navigator.onLine alone is unreliable —
+  // it only reflects the network adapter, not actual internet/server reachability)
+  startConnectionWatcher();
+}
+init();
+</script>
+</body>
+</html>
