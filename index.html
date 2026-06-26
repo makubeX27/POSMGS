@@ -857,13 +857,6 @@
 <div class="cart-backdrop" id="cart-backdrop" onclick="toggleCartDrawer(false)"></div>
 </div>
 
-<!-- ═══════════════ RESTOCK ALERT BANNER ═══════════════ -->
-<div class="restock-banner" id="restock-banner" onclick="openRestockModal()">
-  <div class="restock-banner-icon">⚠️</div>
-  <div class="restock-banner-text" id="restock-banner-text">Items need restocking</div>
-  <div class="restock-banner-count" id="restock-banner-count">0</div>
-</div>
-
 <!-- ═══════════════ ANALYTICS VIEW ═══════════════ -->
 <div id="view-analytics" class="view">
 <div class="analytics-view">
@@ -930,6 +923,11 @@
       <button class="btn-primary" onclick="openAddCategory()">+ Category</button>
       <button class="btn-primary" onclick="openAddProduct()">+ Add Product</button>
     </div>
+  </div>
+  <div class="restock-banner" id="restock-banner" onclick="openRestockModal()" style="margin:10px 0 0">
+    <div class="restock-banner-icon">⚠️</div>
+    <div class="restock-banner-text" id="restock-banner-text">Items need restocking</div>
+    <div class="restock-banner-count" id="restock-banner-count">0</div>
   </div>
   <div class="inv-toolbar">
     <div class="inv-cat-filter" id="inv-cat-filter"></div>
@@ -2019,12 +2017,12 @@ function exportCSV(mode) {
   const csvContent =
     `"${STORE_NAME} - Sales Report (${rangeText})"\r\n` +
     `"Generated: ${new Date().toLocaleString("en-PH")}"\r\n\r\n` +
-    `"=== SUMMARY ==="\r\n` + toCSV(summaryRows) + "\r\n\r\n" +
-    `"=== ITEM BREAKDOWN ==="\r\n` + toCSV(itemRows) + "\r\n\r\n" +
-    `"=== TRANSACTION DETAIL ==="\r\n` + toCSV(txRows);
+    `"SUMMARY"\r\n` + toCSV(summaryRows) + "\r\n\r\n" +
+    `"ITEM BREAKDOWN"\r\n` + toCSV(itemRows) + "\r\n\r\n" +
+    `"TRANSACTION DETAIL"\r\n` + toCSV(txRows);
 
   // ── 4. Trigger download ────────────────────────────────────────
-  const blob = new Blob(["\uFEFF" + csvContent, ""], { type: "text/csv;charset=utf-8;" });
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement("a");
   a.href     = url;
